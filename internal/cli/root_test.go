@@ -180,6 +180,145 @@ func TestRootCommand_MergeAndPruneWarnings(t *testing.T) {
 	}
 }
 
+func TestRootCommand_SystemPruneRemovesUnknownOrphans(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	var stdout bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(400, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+	cmd.SetArgs([]string{"add", "memo"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	fields := strings.Split(strings.TrimSpace(stdout.String()), "\t")
+	if len(fields) != 2 {
+		t.Fatalf("add output = %q", stdout.String())
+	}
+
+	worktreePath := fields[1]
+
+	err = os.Remove(filepath.Join(worktreePath, ".git"))
+	if err != nil {
+		t.Fatalf("Remove() error = %v", err)
+	}
+
+	stdout.Reset()
+
+	cmd = newTestRootCommand(repoDir, time.Unix(400, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+	cmd.SetArgs([]string{"prune", "--system", "--yes"})
+
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), "removed-dir\t") {
+		t.Fatalf("prune --system output = %q", stdout.String())
+	}
+
+	_, err = os.Stat(worktreePath)
+	if !os.IsNotExist(err) {
+		t.Fatalf("Stat() error = %v, want not exist", err)
+	}
+}
+
+func TestRootCommand_SystemPruneLeavesRepoOwnedWorktreesUntouched(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	worktreeID, worktreePath := addWorktree(t, repoDir, "memo")
+	testutil.RunGit(t, repoDir, "update-ref", "-d", "refs/git-wit/"+worktreeID)
+
+	var stdout bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(500, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+	cmd.SetArgs([]string{"prune", "--system", "--yes"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if strings.Contains(stdout.String(), "removed-dir\t") {
+		t.Fatalf("prune --system output = %q", stdout.String())
+	}
+
+	_, err = os.Stat(worktreePath)
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+}
+
+func TestRootCommand_SystemPruneRequiresYesForNonInteractiveInput(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	_, worktreePath := addWorktree(t, repoDir, "memo")
+
+	err := os.Remove(filepath.Join(worktreePath, ".git"))
+	if err != nil {
+		t.Fatalf("Remove() error = %v", err)
+	}
+
+	inputFilePath := filepath.Join(t.TempDir(), "stdin.txt")
+
+	err = os.WriteFile(inputFilePath, []byte(""), 0o600)
+	if err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	// #nosec G304 -- test opens a file it created under t.TempDir.
+	inputFile, err := os.Open(inputFilePath)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+
+	defer func() {
+		closeErr := inputFile.Close()
+		if closeErr != nil {
+			t.Fatalf("Close() error = %v", closeErr)
+		}
+	}()
+
+	var stdout bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(600, 0))
+	cmd.SetIn(inputFile)
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+	cmd.SetArgs([]string{"prune", "--system"})
+
+	err = cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() error = nil, want error")
+	}
+
+	if !strings.Contains(err.Error(), "requires --yes") {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	_, err = os.Stat(worktreePath)
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+}
+
 func newTestRootCommand(repoDir string, now time.Time) *cobra.Command {
 	return cli.NewRootCommandForTest(
 		func() (string, error) {
