@@ -48,12 +48,12 @@ func TestValidateIDRejectsNonV7UUID(t *testing.T) {
 func TestPath(t *testing.T) {
 	t.Parallel()
 
-	repoRoot := "/tmp/repo"
+	root := "/tmp/worktrees"
 	id := "0195e4d1-3d44-7a52-8e18-5f7b3c3d9a01"
 
-	got := worktree.Path(repoRoot, id)
+	got := worktree.Path(root, id)
 
-	want := "/tmp/.repo-git-wit/worktrees/0195e4d1-3d44-7a52-8e18-5f7b3c3d9a01"
+	want := "/tmp/worktrees/0195e4d1-3d44-7a52-8e18-5f7b3c3d9a01"
 	if got != want {
 		t.Fatalf("Path() = %q, want %q", got, want)
 	}

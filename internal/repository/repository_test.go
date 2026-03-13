@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/Warashi/git-wit/internal/repository"
@@ -10,9 +11,9 @@ import (
 )
 
 func TestDiscover(t *testing.T) {
-	t.Parallel()
-
 	repoDir := testutil.InitGitRepo(t)
+	dataHome := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", dataHome)
 
 	repo, err := repository.Discover(context.Background(), repoDir)
 	if err != nil {
@@ -22,12 +23,17 @@ func TestDiscover(t *testing.T) {
 	if repo.Root() != repoDir {
 		t.Fatalf("Root() = %q, want %q", repo.Root(), repoDir)
 	}
+
+	wantRoot := filepath.Join(dataHome, "git-wit", "worktrees")
+	if repo.WorktreeRoot() != wantRoot {
+		t.Fatalf("WorktreeRoot() = %q, want %q", repo.WorktreeRoot(), wantRoot)
+	}
 }
 
 func TestEnsureWorktreeRoot(t *testing.T) {
-	t.Parallel()
-
 	repoDir := testutil.InitGitRepo(t)
+	dataHome := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", dataHome)
 
 	repo, err := repository.Discover(context.Background(), repoDir)
 	if err != nil {

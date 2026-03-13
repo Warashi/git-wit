@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Warashi/git-wit/internal/config"
 	"github.com/Warashi/git-wit/internal/git"
 	"github.com/Warashi/git-wit/internal/worktree"
 )
@@ -15,8 +16,9 @@ const worktreeRootPerm = 0o750
 
 // Repository describes the resolved git-wit repository context.
 type Repository struct {
-	root   string
-	runner git.Runner
+	root         string
+	runner       git.Runner
+	worktreeRoot string
 }
 
 // Discover resolves the current repository from cwd.
@@ -33,9 +35,17 @@ func Discover(ctx context.Context, cwd string) (Repository, error) {
 		return Repository{}, fmt.Errorf("normalize repository root: %w", err)
 	}
 
+	repoRunner := git.NewRunner(root)
+
+	cfg, err := config.Load(ctx, repoRunner)
+	if err != nil {
+		return Repository{}, fmt.Errorf("load config: %w", err)
+	}
+
 	return Repository{
-		root:   root,
-		runner: git.NewRunner(root),
+		root:         root,
+		runner:       repoRunner,
+		worktreeRoot: cfg.WorktreeRoot,
 	}, nil
 }
 
@@ -61,10 +71,10 @@ func (r Repository) Runner() git.Runner {
 
 // WorktreeRoot returns the managed worktree directory.
 func (r Repository) WorktreeRoot() string {
-	return worktree.RootDir(r.root)
+	return r.worktreeRoot
 }
 
 // WorktreePath returns the path for a managed worktree ID.
 func (r Repository) WorktreePath(id string) string {
-	return worktree.Path(r.root, id)
+	return worktree.Path(r.worktreeRoot, id)
 }

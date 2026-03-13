@@ -4,13 +4,10 @@ package worktree
 import (
 	"errors"
 	"fmt"
-	"path"
 	"path/filepath"
 
 	"github.com/google/uuid"
 )
-
-const managedDirSuffix = "-git-wit"
 
 const uuidVersion7 = 7
 
@@ -42,15 +39,7 @@ func ValidateID(worktreeID string) error {
 	return nil
 }
 
-// RootDir returns the managed worktree root under a repository root.
-func RootDir(repoRoot string) string {
-	parentDir := filepath.Dir(repoRoot)
-	repoName := path.Base(filepath.ToSlash(repoRoot))
-
-	return filepath.Join(parentDir, "."+repoName+managedDirSuffix, "worktrees")
-}
-
 // Path returns the absolute path for the managed worktree ID.
-func Path(repoRoot string, id string) string {
-	return filepath.Join(RootDir(repoRoot), id)
+func Path(root string, id string) string {
+	return filepath.Join(root, id)
 }

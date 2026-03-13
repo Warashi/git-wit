@@ -31,6 +31,7 @@ func TestRootCommand_AddAndDir(t *testing.T) {
 	t.Parallel()
 
 	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
 
 	var stdout bytes.Buffer
 
@@ -73,6 +74,7 @@ func TestRootCommand_ListRemoveAndPrune(t *testing.T) {
 	t.Parallel()
 
 	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
 
 	worktreeID, _ := addWorktree(t, repoDir, "memo")
 
@@ -125,6 +127,7 @@ func TestRootCommand_MergeAndPruneWarnings(t *testing.T) {
 	t.Parallel()
 
 	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
 
 	worktreeID, worktreePath := addWorktree(t, repoDir, "memo")
 	writeFile(t, worktreePath, "feature.txt", "feature\n")
@@ -209,6 +212,12 @@ func addWorktree(t *testing.T, repoDir string, memo string) (string, string) {
 	}
 
 	return fields[0], fields[1]
+}
+
+func configureWorktreeRoot(t *testing.T, repoDir string) {
+	t.Helper()
+
+	testutil.RunGit(t, repoDir, "config", "wit.worktree.root", filepath.Join(t.TempDir(), "worktrees"))
 }
 
 func mustMkdir(t *testing.T, dirPath string) {

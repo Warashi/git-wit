@@ -21,6 +21,7 @@ func TestResolve(t *testing.T) {
 		NoSyncPaths:      []string{"tmp/*"},
 		SymlinkPaths:     []string{"node_modules"},
 		CopyPaths:        []string{".env.local"},
+		WorktreeRoot:     "",
 	}
 
 	cases := []struct {
@@ -99,6 +100,7 @@ func TestApply(t *testing.T) {
 		UntrackedDefault: config.ModeNone,
 		SymlinkPaths:     []string{"node_modules"},
 		CopyPaths:        []string{".env.local"},
+		WorktreeRoot:     "",
 	}
 
 	err := snapshot.Apply(context.Background(), git.NewRunner(repoDir), repoDir, destDir, cfg)
