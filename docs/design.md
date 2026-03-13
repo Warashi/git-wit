@@ -41,7 +41,8 @@
 ### 4.1. データ構造の置き場所
 
 1. **ファイルシステム (実体)**
-    * パス: `../.<repo>-git-wit/worktrees/<UUIDv7>` のようなリポジトリ外 sibling directory（または通常のリポジトリ外の特定ディレクトリ）
+    * パス: 既定では `$XDG_DATA_HOME/git-wit/worktrees/<UUIDv7>`。`XDG_DATA_HOME` 未設定時は `$HOME/.local/share/git-wit/worktrees/<UUIDv7>`。
+    * 上書き: `git config wit.worktree.root <ABSOLUTE_PATH>` で配置先を変更できる。
     * 状態: `detached HEAD` の Git Worktree およびスナップショット適用済みのファイル群。
 
 2. **Git Object Database (メタデータ)**
@@ -75,6 +76,8 @@
     # 全体種別に対するデフォルトの振る舞い (copy | symlink | none)
     ignored = copy
     untracked = none
+    # managed worktree の配置先
+    worktree.root = /home/me/.local/share/git-wit/worktrees
 [wit "nosync"]
     # 最優先で同期を除外するパス (glob)
     path = tmp/*
@@ -138,6 +141,16 @@
 2. **孤立したディレクトリ**: ディレクトリは存在するが `refs/git-wit/<ID>` が存在しない（手動 `update-ref -d` された）場合 → 警告を出力し、手動削除を促す。
 3. **Symlink破損**: `git-wit add` 時に作成したSymlinkのリンク先が存在しない場合、ユーザーに警告を出し、手動修復または `rm` を促す。
 
+### `git-wit prune --system [--yes]`
+
+configured な managed worktree root 全体を走査し、`git rev-parse --show-toplevel` で所有 repo を特定できない worktree directory だけを孤児として扱う。
+
+1. 対象は worktree root 直下の UUIDv7 名ディレクトリのみ。
+2. 所有 repo を特定できた worktree には触れない。`refs/git-wit/<ID>` の有無にも介入しない。
+3. 所有 repo を特定できないディレクトリだけを削除候補として列挙する。
+4. `--yes` なしでは確認プロンプトを出し、非対話入力ではエラーにする。
+5. 実行時はディレクトリのみを削除し、ref は削除しない。
+
 ## 7. 状態遷移図 (State Machine)
 
 `git-wit` が管轄する「ワークツリーとメタデータ参照」のライフサイクル。
@@ -176,7 +189,7 @@ stateDiagram-v2
     }
     
     孤立した参照 --> 存在しない : git-wit prune
-    孤立したディレクトリ --> [*] : ガベージコレクション待ち\nまたは手動削除
+    孤立したディレクトリ --> [*] : git-wit prune --system\nまたは手動削除
     破損したワークツリー --> 存在しない : git-wit rm (手動破棄)
 
 ```
