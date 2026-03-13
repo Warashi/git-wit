@@ -18,7 +18,7 @@
 
 ### Goals
 
-* ディレクトリ名に依存しない、IDベース（ULID/UUIDv7等）のワークツリー生成。
+* ディレクトリ名に依存しない、IDベース（UUIDv7）のワークツリー生成。
 * Git内部のオブジェクトストレージを利用したメタデータ（作業メモ等）の堅牢な保存。
 * `git-wit add` 実行時における、Git管理外ファイル（ignored / untracked）のスナップショットベースでの同期（Copy / Symlink）。
 * 状態空間の分離（SCCCの原則）に基づき、シェルの状態（カレントディレクトリ）に干渉しないクリーンなCLIの提供。
@@ -41,12 +41,12 @@
 ### 4.1. データ構造の置き場所
 
 1. **ファイルシステム (実体)**
-    * パス: `../.<repo>-git-wit/worktrees/<ULID>` のようなリポジトリ外 sibling directory（または通常のリポジトリ外の特定ディレクトリ）
+    * パス: `../.<repo>-git-wit/worktrees/<UUIDv7>` のようなリポジトリ外 sibling directory（または通常のリポジトリ外の特定ディレクトリ）
     * 状態: `detached HEAD` の Git Worktree およびスナップショット適用済みのファイル群。
 
 2. **Git Object Database (メタデータ)**
     * GitのBlobオブジェクトとしてJSON形式のメタデータを保存。
-    * ポインタ: `refs/git-wit/<ULID>` が対象のBlobオブジェクトを指す。
+    * ポインタ: `refs/git-wit/<UUIDv7>` が対象のBlobオブジェクトを指す。
 
 ### 4.2. メタデータのスキーマ (JSON)
 
@@ -54,7 +54,7 @@
 
 ```json
 {
-  "id": "01HGW...",
+  "id": "0195e4d1-3d44-7a52-8e18-5f7b3c3d9a01",
   "created_at": "2026-03-13T10:00:00Z",
   "memo": "WIP: ログイン画面のバリデーション修正",
   "version": "1.0"
@@ -104,7 +104,7 @@
 
 ### `git-wit add <memo>`
 
-1. 時刻ソート可能なID（ULID等）を採番。
+1. 時刻ソート可能なID（UUIDv7）を採番。
 2. JSONメタデータを構築し、`git hash-object -w` でBlobとして保存。`git update-ref refs/git-wit/<ID> <BlobHash>` で参照を作成。
 3. `git worktree add -d <Dir>/<ID>` で detached HEAD ワークツリーを作成。
 4. **【同期フェーズ】**: 親リポジトリの `ignored` および `untracked` ファイルをリストアップし、上記「5.2」の評価ロジックに従って `copy` または `symlink` を適用する。
@@ -199,6 +199,12 @@ stateDiagram-v2
 
 * **決定**: メタデータをコミットメッセージ等ではなく、`refs/git-wit/` 空間のポインタと Blob で管理する。
 * **理由**: detached HEAD との相性の良さと、将来的なスキーマ拡張（後方互換性）への対応。
+
+### 8.3.1. ID フォーマットの固定（UUIDv7）
+
+* **決定**: worktree ID は canonical な UUIDv7 文字列に固定する。
+* **理由**: 時系列ソート可能でありつつ、既存の UUID エコシステムと整合するため。
+* **トレードオフ**: ID は ULID より長くなるが、互換レイヤーを持たない実装にすることで複雑性を抑える。
 
 ### 8.4. `modified` ファイルのコピーの除外（SRPの徹底）
 
