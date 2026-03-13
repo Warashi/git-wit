@@ -94,9 +94,10 @@
       devshells.default = {
         devshell = {
           packages = with pkgs; [
-            gomod2nix
+            nix-update
             goEnv
             golangci-lint
+            gomod2nix
           ];
           startup = {
             pre-commit = {
