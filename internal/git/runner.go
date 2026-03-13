@@ -36,6 +36,15 @@ func NewRunner(repoDir string) Runner {
 
 // Run executes a git command and captures trimmed stdout and stderr.
 func (r Runner) Run(ctx context.Context, args ...string) (Result, error) {
+	return r.run(ctx, "", args...)
+}
+
+// RunInput executes a git command with stdin content.
+func (r Runner) RunInput(ctx context.Context, stdin string, args ...string) (Result, error) {
+	return r.run(ctx, stdin, args...)
+}
+
+func (r Runner) run(ctx context.Context, stdin string, args ...string) (Result, error) {
 	cmdArgs := make([]string, 0, len(args)+gitDirArgCount)
 	if r.repoDir != "" {
 		cmdArgs = append(cmdArgs, "-C", r.repoDir)
@@ -49,6 +58,10 @@ func (r Runner) Run(ctx context.Context, args ...string) (Result, error) {
 	var stdout bytes.Buffer
 
 	var stderr bytes.Buffer
+
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
 
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
