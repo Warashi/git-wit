@@ -3,12 +3,13 @@ package worktree
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 
 	"github.com/oklog/ulid/v2"
 )
 
-const managedDirName = ".git-wit"
+const managedDirSuffix = "-git-wit"
 
 // NewID returns a new lexicographically sortable worktree identifier.
 func NewID() string {
@@ -27,7 +28,10 @@ func ValidateID(id string) error {
 
 // RootDir returns the managed worktree root under a repository root.
 func RootDir(repoRoot string) string {
-	return filepath.Join(repoRoot, managedDirName, "worktrees")
+	parentDir := filepath.Dir(repoRoot)
+	repoName := path.Base(filepath.ToSlash(repoRoot))
+
+	return filepath.Join(parentDir, "."+repoName+managedDirSuffix, "worktrees")
 }
 
 // Path returns the absolute path for the managed worktree ID.

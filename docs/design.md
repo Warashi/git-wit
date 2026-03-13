@@ -41,7 +41,7 @@
 ### 4.1. データ構造の置き場所
 
 1. **ファイルシステム (実体)**
-    * パス: `./.git-wit/worktrees/<ULID>` (または通常のリポジトリ外の特定ディレクトリ)
+    * パス: `../.<repo>-git-wit/worktrees/<ULID>` のようなリポジトリ外 sibling directory（または通常のリポジトリ外の特定ディレクトリ）
     * 状態: `detached HEAD` の Git Worktree およびスナップショット適用済みのファイル群。
 
 2. **Git Object Database (メタデータ)**

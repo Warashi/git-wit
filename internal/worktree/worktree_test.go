@@ -25,7 +25,7 @@ func TestPath(t *testing.T) {
 
 	got := worktree.Path(repoRoot, id)
 
-	want := "/tmp/repo/.git-wit/worktrees/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	want := "/tmp/.repo-git-wit/worktrees/01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	if got != want {
 		t.Fatalf("Path() = %q, want %q", got, want)
 	}

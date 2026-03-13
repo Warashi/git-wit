@@ -60,7 +60,6 @@ func TestCollect(t *testing.T) {
 	mustMkdir(t, filepath.Join(repoDir, "ignored"))
 	writeFile(t, filepath.Join(repoDir, "ignored", "a.txt"), "ignored")
 	writeFile(t, filepath.Join(repoDir, "scratch.txt"), "scratch")
-	mustMkdir(t, filepath.Join(repoDir, ".git-wit", "worktrees", "id"))
 
 	items, err := snapshot.Collect(context.Background(), git.NewRunner(repoDir))
 	if err != nil {

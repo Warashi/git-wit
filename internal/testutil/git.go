@@ -49,6 +49,8 @@ func RunGitWithInput(t *testing.T, repoDir string, stdin string, args ...string)
 	cmd := exec.CommandContext(context.Background(), "git", args...)
 
 	cmd.Dir = repoDir
+
+	cmd.Env = filteredGitEnv()
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)
 	}
@@ -59,4 +61,31 @@ func RunGitWithInput(t *testing.T, repoDir string, stdin string, args ...string)
 	}
 
 	return output
+}
+
+func filteredGitEnv() []string {
+	env := os.Environ()
+
+	filtered := make([]string, 0, len(env))
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "GIT_COMMON_DIR=") {
+			continue
+		}
+
+		if strings.HasPrefix(entry, "GIT_DIR=") {
+			continue
+		}
+
+		if strings.HasPrefix(entry, "GIT_INDEX_FILE=") {
+			continue
+		}
+
+		if strings.HasPrefix(entry, "GIT_WORK_TREE=") {
+			continue
+		}
+
+		filtered = append(filtered, entry)
+	}
+
+	return filtered
 }

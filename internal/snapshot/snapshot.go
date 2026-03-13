@@ -18,7 +18,7 @@ import (
 
 const (
 	copyParentPerm    = 0o750
-	managedRootPrefix = ".git-wit/"
+	managedRootPrefix = ".wit/"
 )
 
 // Kind describes how Git classifies the source path.
@@ -205,7 +205,7 @@ func matchesPattern(pattern string, itemPath string) bool {
 }
 
 func isManagedPath(itemPath string) bool {
-	return itemPath == ".git-wit" || strings.HasPrefix(itemPath, managedRootPrefix)
+	return itemPath == ".wit" || strings.HasPrefix(itemPath, managedRootPrefix)
 }
 
 func copyPath(srcPath string, destPath string) error {

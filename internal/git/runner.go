@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -54,6 +55,7 @@ func (r Runner) run(ctx context.Context, stdin string, args ...string) (Result, 
 
 	// #nosec G204 -- git is the intended executable and arguments come from trusted callers.
 	cmd := exec.CommandContext(ctx, "git", cmdArgs...)
+	cmd.Env = filteredGitEnv()
 
 	var stdout bytes.Buffer
 
@@ -98,4 +100,31 @@ func (e CommandError) ExitCode() int {
 	}
 
 	return exitErr.ExitCode()
+}
+
+func filteredGitEnv() []string {
+	env := os.Environ()
+
+	filtered := make([]string, 0, len(env))
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "GIT_COMMON_DIR=") {
+			continue
+		}
+
+		if strings.HasPrefix(entry, "GIT_DIR=") {
+			continue
+		}
+
+		if strings.HasPrefix(entry, "GIT_INDEX_FILE=") {
+			continue
+		}
+
+		if strings.HasPrefix(entry, "GIT_WORK_TREE=") {
+			continue
+		}
+
+		filtered = append(filtered, entry)
+	}
+
+	return filtered
 }
