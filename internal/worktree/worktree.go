@@ -2,25 +2,41 @@
 package worktree
 
 import (
+	"errors"
 	"fmt"
 	"path"
 	"path/filepath"
 
-	"github.com/oklog/ulid/v2"
+	"github.com/google/uuid"
 )
 
 const managedDirSuffix = "-git-wit"
 
+const uuidVersion7 = 7
+
+var (
+	errInvalidUUIDVersion = errors.New("invalid uuid version")
+	errNonCanonicalUUIDv7 = errors.New("non-canonical uuidv7")
+)
+
 // NewID returns a new lexicographically sortable worktree identifier.
 func NewID() string {
-	return ulid.Make().String()
+	return uuid.Must(uuid.NewV7()).String()
 }
 
-// ValidateID checks whether id is a valid ULID string.
-func ValidateID(id string) error {
-	_, err := ulid.ParseStrict(id)
+// ValidateID checks whether worktreeID is a canonical UUIDv7 string.
+func ValidateID(worktreeID string) error {
+	parsed, err := uuid.Parse(worktreeID)
 	if err != nil {
-		return fmt.Errorf("parse ulid: %w", err)
+		return fmt.Errorf("parse uuid: %w", err)
+	}
+
+	if parsed.Version() != uuidVersion7 {
+		return fmt.Errorf("%w: got %d, want %d", errInvalidUUIDVersion, parsed.Version(), uuidVersion7)
+	}
+
+	if parsed.String() != worktreeID {
+		return fmt.Errorf("%w: %s", errNonCanonicalUUIDv7, worktreeID)
 	}
 
 	return nil

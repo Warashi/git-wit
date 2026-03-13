@@ -17,7 +17,7 @@ func TestStoreAndLoad(t *testing.T) {
 
 	repoDir := testutil.InitGitRepo(t)
 	runner := git.NewRunner(repoDir)
-	item := metadata.New("01ARZ3NDEKTSV4RRFFQ69G5FAV", time.Unix(100, 0), "memo")
+	item := metadata.New("0195e4d1-3d44-7a52-8e18-5f7b3c3d9a01", time.Unix(100, 0), "memo")
 
 	err := metadata.Store(context.Background(), runner, item)
 	if err != nil {
@@ -40,8 +40,8 @@ func TestList(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
 	runner := git.NewRunner(repoDir)
 	items := []metadata.Metadata{
-		metadata.New("01ARZ3NDEKTSV4RRFFQ69G5FAV", time.Unix(200, 0), "second"),
-		metadata.New("01ARZ3NDEKTSV4RRFFQ69G5FAW", time.Unix(100, 0), "first"),
+		metadata.New("0195e4d1-3d44-7a52-8e18-5f7b3c3d9a02", time.Unix(200, 0), "second"),
+		metadata.New("0195e4d1-3d44-7a52-8e18-5f7b3c3d9a01", time.Unix(100, 0), "first"),
 	}
 
 	for _, item := range items {
@@ -70,7 +70,7 @@ func TestDelete(t *testing.T) {
 
 	repoDir := testutil.InitGitRepo(t)
 	runner := git.NewRunner(repoDir)
-	item := metadata.New("01ARZ3NDEKTSV4RRFFQ69G5FAV", time.Unix(100, 0), "memo")
+	item := metadata.New("0195e4d1-3d44-7a52-8e18-5f7b3c3d9a01", time.Unix(100, 0), "memo")
 
 	err := metadata.Store(context.Background(), runner, item)
 	if err != nil {
@@ -97,7 +97,7 @@ func TestLoad_IgnoresUnknownFields(t *testing.T) {
 
 	repoDir := testutil.InitGitRepo(t)
 	runner := git.NewRunner(repoDir)
-	worktreeID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	worktreeID := "0195e4d1-3d44-7a52-8e18-5f7b3c3d9a01"
 	raw := fmt.Sprintf(
 		`{"id":"%s","created_at":"1970-01-01T00:01:40Z","memo":"memo","version":"1.0","extra":"ignored"}`,
 		worktreeID,
