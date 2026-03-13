@@ -1,0 +1,15 @@
+version: "2"
+
+run:
+  tests: true
+
+linters:
+  default: all
+  disable:
+    - wsl
+    - depguard
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
