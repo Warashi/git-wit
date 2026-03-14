@@ -36,6 +36,7 @@
             hooks.goConfigHook
             hooks.goBuildHook
 
+            git
             goEnv
             writableTmpDirAsHomeHook
           ];
@@ -55,8 +56,8 @@
             hooks.goConfigHook
             hooks.goBuildHook
 
-            golangci-lint
             goEnv
+            golangci-lint
             writableTmpDirAsHomeHook
           ];
           checkPhase = ''

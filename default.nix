@@ -18,4 +18,5 @@ buildGoApplication {
   version = "0.0.1";
   pwd = ./.;
   src = ./.;
+  nativeBuildInputs = [ pkgs.git ];
 }
