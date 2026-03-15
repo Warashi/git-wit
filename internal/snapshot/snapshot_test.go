@@ -16,7 +16,7 @@ func TestResolve(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.Config{
-		IgnoredDefault:   config.ModeCopy,
+		IgnoredDefault:   config.ModeNone,
 		UntrackedDefault: config.ModeNone,
 		NoSyncPaths:      []string{"tmp/*"},
 		SymlinkPaths:     []string{"node_modules"},
@@ -33,7 +33,7 @@ func TestResolve(t *testing.T) {
 		{name: "nosync wins", path: "tmp/app.log", kind: snapshot.KindUntracked, want: config.ModeNone},
 		{name: "symlink wins", path: "node_modules", kind: snapshot.KindIgnored, want: config.ModeSymlink},
 		{name: "copy explicit", path: ".env.local", kind: snapshot.KindUntracked, want: config.ModeCopy},
-		{name: "ignored default", path: "dist/app.js", kind: snapshot.KindIgnored, want: config.ModeCopy},
+		{name: "ignored default", path: "dist/app.js", kind: snapshot.KindIgnored, want: config.ModeNone},
 		{name: "untracked default", path: "scratch.txt", kind: snapshot.KindUntracked, want: config.ModeNone},
 	}
 

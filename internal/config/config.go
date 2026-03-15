@@ -41,7 +41,7 @@ type Config struct {
 
 // Load reads git-wit settings from git config.
 func Load(ctx context.Context, runner git.Runner) (Config, error) {
-	ignoredDefault, err := loadMode(ctx, runner, "wit.ignored", ModeCopy)
+	ignoredDefault, err := loadMode(ctx, runner, "wit.ignored", ModeNone)
 	if err != nil {
 		return Config{}, err
 	}

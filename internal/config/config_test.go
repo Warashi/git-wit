@@ -20,8 +20,8 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if cfg.IgnoredDefault != config.ModeCopy {
-		t.Fatalf("IgnoredDefault = %q, want %q", cfg.IgnoredDefault, config.ModeCopy)
+	if cfg.IgnoredDefault != config.ModeNone {
+		t.Fatalf("IgnoredDefault = %q, want %q", cfg.IgnoredDefault, config.ModeNone)
 	}
 
 	if cfg.UntrackedDefault != config.ModeNone {
