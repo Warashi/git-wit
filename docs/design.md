@@ -74,7 +74,7 @@
 ```ini
 [wit]
     # 全体種別に対するデフォルトの振る舞い (copy | symlink | none)
-    ignored = copy
+    ignored = none
     untracked = none
     # managed worktree の配置先
     worktree.root = /home/me/.local/share/git-wit/worktrees
