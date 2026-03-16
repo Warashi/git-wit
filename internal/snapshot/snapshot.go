@@ -310,12 +310,7 @@ func symlinkPath(srcPath string, destPath string) error {
 		return fmt.Errorf("create parent directory: %w", err)
 	}
 
-	relativeTarget, err := filepath.Rel(filepath.Dir(destPath), srcPath)
-	if err != nil {
-		return fmt.Errorf("compute relative symlink target: %w", err)
-	}
-
-	err = os.Symlink(relativeTarget, destPath)
+	err = os.Symlink(srcPath, destPath)
 	if err != nil {
 		return fmt.Errorf("create symlink: %w", err)
 	}

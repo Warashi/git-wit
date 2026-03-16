@@ -123,8 +123,9 @@ func TestApply(t *testing.T) {
 		t.Fatalf("Readlink() error = %v", err)
 	}
 
-	if linkTarget == "" {
-		t.Fatal("Readlink() = empty")
+	wantTarget := filepath.Join(repoDir, "node_modules")
+	if linkTarget != wantTarget {
+		t.Fatalf("Readlink() = %q, want %q", linkTarget, wantTarget)
 	}
 
 	_, err = os.Stat(filepath.Join(destDir, "scratch.txt"))
