@@ -21,6 +21,22 @@ const (
 	managedRootPrefix = ".wit/"
 )
 
+type dirCloneFunc func(srcPath string, destPath string) (bool, error)
+
+type fileCloneFunc func(srcPath string, destPath string, mode fs.FileMode) (bool, error)
+
+type copier struct {
+	cloneDir  dirCloneFunc
+	cloneFile fileCloneFunc
+}
+
+func newCopier() copier {
+	return copier{
+		cloneDir:  tryCloneDir,
+		cloneFile: tryCloneFile,
+	}
+}
+
 // Kind describes how Git classifies the source path.
 type Kind string
 
@@ -44,6 +60,8 @@ func Apply(ctx context.Context, runner git.Runner, repoRoot string, destRoot str
 		return err
 	}
 
+	copier := newCopier()
+
 	for _, item := range items {
 		mode := Resolve(cfg, item.Path, item.Kind)
 		if mode == config.ModeNone {
@@ -54,7 +72,7 @@ func Apply(ctx context.Context, runner git.Runner, repoRoot string, destRoot str
 
 		destPath := filepath.Join(destRoot, filepath.FromSlash(item.Path))
 		if mode == config.ModeCopy {
-			err = copyPath(srcPath, destPath)
+			err = copier.copyPath(srcPath, destPath)
 			if err != nil {
 				return fmt.Errorf("copy %s: %w", item.Path, err)
 			}
@@ -208,7 +226,7 @@ func isManagedPath(itemPath string) bool {
 	return itemPath == ".wit" || strings.HasPrefix(itemPath, managedRootPrefix)
 }
 
-func copyPath(srcPath string, destPath string) error {
+func (c copier) copyPath(srcPath string, destPath string) error {
 	info, err := os.Lstat(srcPath)
 	if err != nil {
 		return fmt.Errorf("stat source: %w", err)
@@ -219,14 +237,28 @@ func copyPath(srcPath string, destPath string) error {
 	}
 
 	if info.IsDir() {
-		return copyDir(srcPath, destPath, info.Mode())
+		return c.copyDir(srcPath, destPath, info.Mode())
 	}
 
-	return copyFile(srcPath, destPath, info.Mode())
+	return c.copyFile(srcPath, destPath, info.Mode())
 }
 
-func copyDir(srcPath string, destPath string, mode fs.FileMode) error {
-	err := os.MkdirAll(destPath, mode.Perm())
+func (c copier) copyDir(srcPath string, destPath string, mode fs.FileMode) error {
+	err := os.MkdirAll(filepath.Dir(destPath), copyParentPerm)
+	if err != nil {
+		return fmt.Errorf("create parent directory: %w", err)
+	}
+
+	handled, err := c.cloneDir(srcPath, destPath)
+	if err != nil {
+		return fmt.Errorf("clone directory: %w", err)
+	}
+
+	if handled {
+		return nil
+	}
+
+	err = os.MkdirAll(destPath, mode.Perm())
 	if err != nil {
 		return fmt.Errorf("create directory: %w", err)
 	}
@@ -240,7 +272,7 @@ func copyDir(srcPath string, destPath string, mode fs.FileMode) error {
 		srcChild := filepath.Join(srcPath, entry.Name())
 		destChild := filepath.Join(destPath, entry.Name())
 
-		err = copyPath(srcChild, destChild)
+		err = c.copyPath(srcChild, destChild)
 		if err != nil {
 			return err
 		}
@@ -249,12 +281,25 @@ func copyDir(srcPath string, destPath string, mode fs.FileMode) error {
 	return nil
 }
 
-func copyFile(srcPath string, destPath string, mode fs.FileMode) error {
+func (c copier) copyFile(srcPath string, destPath string, mode fs.FileMode) error {
 	err := os.MkdirAll(filepath.Dir(destPath), copyParentPerm)
 	if err != nil {
 		return fmt.Errorf("create parent directory: %w", err)
 	}
 
+	handled, err := c.cloneFile(srcPath, destPath, mode)
+	if err != nil {
+		return fmt.Errorf("clone file: %w", err)
+	}
+
+	if handled {
+		return nil
+	}
+
+	return copyFileContents(srcPath, destPath, mode)
+}
+
+func copyFileContents(srcPath string, destPath string, mode fs.FileMode) error {
 	// #nosec G304 -- source paths are discovered from the active repository.
 	srcFile, err := os.Open(srcPath)
 	if err != nil {
