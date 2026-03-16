@@ -16,3 +16,7 @@ schema = 3
   [mod.'github.com/spf13/pflag']
     version = 'v1.0.9'
     hash = 'sha256-YAjyYpq5BXCosVJtvYLWFG1t4gma2ylzc7ILLoj/hD8='
+
+  [mod.'golang.org/x/sys']
+    version = 'v0.39.0'
+    hash = 'sha256-dxTBu/JAWUkPbjFIXXRFdhQWyn+YyEpIC+tWqGo0Y6U='
