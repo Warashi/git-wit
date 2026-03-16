@@ -14,9 +14,9 @@ schema = 3
     hash = 'sha256-nbRCTFiDCC2jKK7AHi79n7urYCMP5yDZnWtNVJrDi+k='
 
   [mod.'github.com/spf13/pflag']
-    version = 'v1.0.9'
-    hash = 'sha256-YAjyYpq5BXCosVJtvYLWFG1t4gma2ylzc7ILLoj/hD8='
+    version = 'v1.0.10'
+    hash = 'sha256-uDPnWjHpSrzXr17KEYEA1yAbizfcsfo5AyztY2tS6ZU='
 
   [mod.'golang.org/x/sys']
-    version = 'v0.39.0'
-    hash = 'sha256-dxTBu/JAWUkPbjFIXXRFdhQWyn+YyEpIC+tWqGo0Y6U='
+    version = 'v0.42.0'
+    hash = 'sha256-LhNedvUEJbPYyR6EoU91rfOr3DBBoauLOcMcyqghEos='
