@@ -21,6 +21,7 @@ func TestResolve(t *testing.T) {
 		NoSyncPaths:      []string{"tmp/*"},
 		SymlinkPaths:     []string{"node_modules"},
 		CopyPaths:        []string{".env.local"},
+		AddHooks:         nil,
 		WorktreeRoot:     "",
 	}
 
@@ -100,6 +101,7 @@ func TestApply(t *testing.T) {
 		UntrackedDefault: config.ModeNone,
 		SymlinkPaths:     []string{"node_modules"},
 		CopyPaths:        []string{".env.local"},
+		AddHooks:         nil,
 		WorktreeRoot:     "",
 	}
 

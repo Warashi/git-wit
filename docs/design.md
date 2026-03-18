@@ -89,6 +89,10 @@
 [wit "copy"]
     # 物理コピーするパス (glob)
     path = .env.local
+[wit "add"]
+    # add 完了後に worktree dir を cwd として走る shell command string
+    hook = npm run post-add
+    hook = npm test
 
 ```
 
@@ -111,7 +115,8 @@
 2. JSONメタデータを構築し、`git hash-object -w` でBlobとして保存。`git update-ref refs/git-wit/<ID> <BlobHash>` で参照を作成。
 3. `git worktree add -d <Dir>/<ID>` で detached HEAD ワークツリーを作成。
 4. **【同期フェーズ】**: 親リポジトリの `ignored` および `untracked` ファイルをリストアップし、上記「5.2」の評価ロジックに従って `copy` または `symlink` を適用する。
-5. 出力: 生成されたIDとパス。
+5. `[wit "add"] hook` を設定順に shell command string として実行し、各コマンドの `cwd` は新規 worktree とする。最初の失敗で中断し、既存の worktree や metadata は巻き戻さない。
+6. 出力: 生成されたIDとパス。
 
 ### `git-wit ls`
 

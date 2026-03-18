@@ -4,9 +4,11 @@ package add
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/Warashi/git-wit/internal/config"
+	"github.com/Warashi/git-wit/internal/hook"
 	"github.com/Warashi/git-wit/internal/metadata"
 	"github.com/Warashi/git-wit/internal/repository"
 	"github.com/Warashi/git-wit/internal/snapshot"
@@ -54,6 +56,13 @@ func Run(ctx context.Context, cwd string, now time.Time, memo string) (Result, e
 	err = snapshot.Apply(ctx, repo.Runner(), repo.Root(), worktreePath, cfg)
 	if err != nil {
 		return Result{}, fmt.Errorf("apply snapshot: %w", err)
+	}
+
+	if len(cfg.AddHooks) > 0 {
+		err = hook.Run(ctx, worktreePath, cfg.AddHooks, os.Stdout, os.Stderr)
+		if err != nil {
+			return Result{}, fmt.Errorf("run add hooks: %w", err)
+		}
 	}
 
 	return Result{
