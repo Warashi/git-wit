@@ -36,6 +36,7 @@ type Config struct {
 	NoSyncPaths      []string
 	SymlinkPaths     []string
 	CopyPaths        []string
+	AddHooks         []string
 	WorktreeRoot     string
 }
 
@@ -66,6 +67,11 @@ func Load(ctx context.Context, runner git.Runner) (Config, error) {
 		return Config{}, err
 	}
 
+	addHooks, err := loadMultiValue(ctx, runner, "wit.add.hook")
+	if err != nil {
+		return Config{}, err
+	}
+
 	worktreeRoot, err := loadWorktreeRoot(ctx, runner)
 	if err != nil {
 		return Config{}, err
@@ -77,6 +83,7 @@ func Load(ctx context.Context, runner git.Runner) (Config, error) {
 		NoSyncPaths:      noSyncPaths,
 		SymlinkPaths:     symlinkPaths,
 		CopyPaths:        copyPaths,
+		AddHooks:         addHooks,
 		WorktreeRoot:     worktreeRoot,
 	}, nil
 }

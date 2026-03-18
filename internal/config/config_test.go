@@ -44,6 +44,8 @@ func TestLoadConfiguredValues(t *testing.T) {
 	testutil.RunGit(t, repoDir, "config", "--add", "wit.nosync.path", "*.log")
 	testutil.RunGit(t, repoDir, "config", "--add", "wit.symlink.path", "node_modules")
 	testutil.RunGit(t, repoDir, "config", "--add", "wit.copy.path", ".env.local")
+	testutil.RunGit(t, repoDir, "config", "--add", "wit.add.hook", "npm run lint")
+	testutil.RunGit(t, repoDir, "config", "--add", "wit.add.hook", "npm test")
 	testutil.RunGit(t, repoDir, "config", "wit.worktree.root", customRoot)
 
 	cfg, err := config.Load(context.Background(), git.NewRunner(repoDir))
@@ -84,5 +86,9 @@ func assertConfiguredPaths(t *testing.T, cfg config.Config) {
 
 	if len(cfg.CopyPaths) != 1 || cfg.CopyPaths[0] != ".env.local" {
 		t.Fatalf("CopyPaths = %#v", cfg.CopyPaths)
+	}
+
+	if len(cfg.AddHooks) != 2 || cfg.AddHooks[0] != "npm run lint" || cfg.AddHooks[1] != "npm test" {
+		t.Fatalf("AddHooks = %#v", cfg.AddHooks)
 	}
 }
