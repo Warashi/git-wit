@@ -18,9 +18,9 @@ func TestResolve(t *testing.T) {
 	cfg := config.Config{
 		IgnoredDefault:   config.ModeNone,
 		UntrackedDefault: config.ModeNone,
-		NoSyncPaths:      []string{"tmp/*"},
-		SymlinkPaths:     []string{"node_modules"},
-		CopyPaths:        []string{".env.local"},
+		NoSyncPaths:      []string{"tmp/*", "tmp/**"},
+		SymlinkPaths:     nil,
+		CopyPaths:        []string{"**/node_modules", ".env.local"},
 		AddHooks:         nil,
 		WorktreeRoot:     "",
 	}
@@ -32,7 +32,14 @@ func TestResolve(t *testing.T) {
 		want config.Mode
 	}{
 		{name: "nosync wins", path: "tmp/app.log", kind: snapshot.KindUntracked, want: config.ModeNone},
-		{name: "symlink wins", path: "node_modules", kind: snapshot.KindIgnored, want: config.ModeSymlink},
+		{name: "nosync recursive glob", path: "tmp/packages/app.log", kind: snapshot.KindUntracked, want: config.ModeNone},
+		{name: "copy recursive root", path: "node_modules/", kind: snapshot.KindIgnored, want: config.ModeCopy},
+		{
+			name: "copy recursive nested",
+			path: "packages/web/node_modules/",
+			kind: snapshot.KindIgnored,
+			want: config.ModeCopy,
+		},
 		{name: "copy explicit", path: ".env.local", kind: snapshot.KindUntracked, want: config.ModeCopy},
 		{name: "ignored default", path: "dist/app.js", kind: snapshot.KindIgnored, want: config.ModeNone},
 		{name: "untracked default", path: "scratch.txt", kind: snapshot.KindUntracked, want: config.ModeNone},
@@ -47,6 +54,43 @@ func TestResolve(t *testing.T) {
 				t.Fatalf("Resolve() = %q, want %q", got, testCase.want)
 			}
 		})
+	}
+}
+
+func TestApplyCopiesRecursiveGlobPath(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	destDir := t.TempDir()
+	writeFile(t, filepath.Join(repoDir, ".gitignore"), "**/node_modules/\n")
+	testutil.RunGit(t, repoDir, "add", ".gitignore")
+	testutil.RunGit(t, repoDir, "commit", "-m", "add ignore rules")
+
+	mustMkdir(t, filepath.Join(repoDir, "packages", "web", "node_modules"))
+	writeFile(t, filepath.Join(repoDir, "packages", "web", "node_modules", "pkg.json"), "{}")
+
+	//nolint:exhaustruct // Test input only sets fields relevant to resolution.
+	cfg := config.Config{
+		IgnoredDefault:   config.ModeNone,
+		UntrackedDefault: config.ModeNone,
+		CopyPaths:        []string{"**/node_modules"},
+		AddHooks:         nil,
+		WorktreeRoot:     "",
+	}
+
+	err := snapshot.Apply(context.Background(), git.NewRunner(repoDir), repoDir, destDir, cfg)
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+
+	// #nosec G304 -- test reads from the temporary destination directory it created.
+	got, err := os.ReadFile(filepath.Join(destDir, "packages", "web", "node_modules", "pkg.json"))
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+
+	if string(got) != "{}" {
+		t.Fatalf("copied pkg = %q, want %q", string(got), "{}")
 	}
 }
 

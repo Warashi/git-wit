@@ -210,16 +210,62 @@ func matchesAny(patterns []string, itemPath string) bool {
 }
 
 func matchesPattern(pattern string, itemPath string) bool {
-	matched, err := path.Match(pattern, itemPath)
-	if err == nil && matched {
-		return true
-	}
+	pattern = normalizeMatchPath(pattern)
+	itemPath = normalizeMatchPath(itemPath)
 
 	if !strings.ContainsAny(pattern, "*?[") {
 		return itemPath == pattern || strings.HasPrefix(itemPath, pattern+"/")
 	}
 
-	return false
+	return matchGlobPattern(pattern, itemPath)
+}
+
+func normalizeMatchPath(value string) string {
+	return strings.TrimRight(value, "/")
+}
+
+func matchGlobPattern(pattern string, itemPath string) bool {
+	patternParts := splitMatchPath(pattern)
+	itemParts := splitMatchPath(itemPath)
+
+	return matchGlobParts(patternParts, itemParts)
+}
+
+func splitMatchPath(value string) []string {
+	if value == "" {
+		return nil
+	}
+
+	return strings.Split(value, "/")
+}
+
+func matchGlobParts(patternParts []string, itemParts []string) bool {
+	if len(patternParts) == 0 {
+		return len(itemParts) == 0
+	}
+
+	if patternParts[0] == "**" {
+		if matchGlobParts(patternParts[1:], itemParts) {
+			return true
+		}
+
+		if len(itemParts) == 0 {
+			return false
+		}
+
+		return matchGlobParts(patternParts, itemParts[1:])
+	}
+
+	if len(itemParts) == 0 {
+		return false
+	}
+
+	matched, err := path.Match(patternParts[0], itemParts[0])
+	if err != nil || !matched {
+		return false
+	}
+
+	return matchGlobParts(patternParts[1:], itemParts[1:])
 }
 
 func isManagedPath(itemPath string) bool {

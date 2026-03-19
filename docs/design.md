@@ -27,7 +27,7 @@
 ### Non-Goals
 
 * **チーム共有の同期設定**: `git-wit` はあくまで「個人のローカル作業を最適化するツール」と位置づけ、設定は個人の `git config` に依存させる。プロジェクトごとの `.witconfig` のような独自ファイルのパースは行わない。
-* **複雑なパターンマッチング**: `.gitignore` のような否定条件（`!foo`）や正規表現はサポートせず、単純な `glob` のみとする。
+* **複雑なパターンマッチング**: `.gitignore` のような否定条件（`!foo`）や正規表現はサポートせず、`**` を含む単純な `glob` のみとする。
 * **`modified`（Git追跡済みで未コミットの変更）の同期**: これはGit本来の責務（`stash` や `commit`）であり、ツール側でのファイルコピーで代行するとGitのインデックス状態と乖離するためサポートしない。
 * **継続的なディレクトリ同期**: `git-wit add` 後の状態変更を監視・同期するデーモン機能は持たない。
 * **ツール内部での `cd` の実装**: 各シェルのフックや環境依存コードの排除。
@@ -79,15 +79,16 @@
     # managed worktree の配置先
     worktree.root = /home/me/.local/share/git-wit/worktrees
 [wit "nosync"]
-    # 最優先で同期を除外するパス (glob)
+    # 最優先で同期を除外するパス (glob, ** 可)
     path = tmp/*
     path = *.log
 [wit "symlink"]
-    # Symlinkとしてリンクを張るパス (glob)
+    # Symlinkとしてリンクを張るパス (glob, ** 可)
     path = node_modules
     path = .next
 [wit "copy"]
-    # 物理コピーするパス (glob)
+    # 物理コピーするパス (glob, ** 可)
+    path = **/node_modules
     path = .env.local
 [wit "add"]
     # add 完了後に worktree dir を cwd として走る shell command string
@@ -236,8 +237,8 @@ stateDiagram-v2
 
 ### 8.6. 複雑性の排除（単純な `glob` の採用）
 
-* **決定**: `.gitignore` 形式の完全互換（否定条件 `!` 等）をサポートしない。
-* **理由**: 評価ロジックの複雑性が跳ね上がるため。個人的なユースケースにおいては単純なglobマッチと優先順位のルールだけで十分に要件を満たせると判断した。
+* **決定**: `.gitignore` 形式の完全互換（否定条件 `!` 等）や正規表現はサポートしない。一方で、`**` を使う再帰 glob は許容する。
+* **理由**: 評価ロジックの複雑性を抑えつつ、`node_modules` のような深い階層の除外・コピー指定には `**` が実用上必要になるため。個人的なユースケースではこの範囲で十分に要件を満たせる。
 
 ## 9. 将来の拡張性 (Future Enhancements)
 
