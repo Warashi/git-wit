@@ -48,8 +48,9 @@ func resolveWorktreeID(repo repository.Repository) (string, error) {
 		return "", errNotManagedWorktree
 	}
 
-	if err := worktree.ValidateID(rel); err != nil {
-		return "", fmt.Errorf("validate worktree id: %w", err)
+	validationErr := worktree.ValidateID(rel)
+	if validationErr != nil {
+		return "", fmt.Errorf("validate worktree id: %w", validationErr)
 	}
 
 	return rel, nil
