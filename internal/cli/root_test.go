@@ -18,7 +18,7 @@ func TestNewRootCommand_HasSubcommands(t *testing.T) {
 
 	cmd := cli.NewRootCommand()
 
-	want := []string{"add", "ls", "dir", "rm", "merge", "prune"}
+	want := []string{"add", "ls", "id", "dir", "rm", "merge", "prune"}
 	for _, name := range want {
 		got, _, err := cmd.Find([]string{name})
 		if err != nil || got == cmd {
@@ -67,6 +67,33 @@ func TestRootCommand_AddAndDir(t *testing.T) {
 
 	if strings.TrimSpace(stdout.String()) != worktreePath {
 		t.Fatalf("dir output = %q, want %q", stdout.String(), worktreePath)
+	}
+}
+
+func TestRootCommand_ID(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	worktreeID, worktreePath := addWorktree(t, repoDir, "memo")
+	nestedDir := filepath.Join(worktreePath, "nested")
+	mustMkdir(t, nestedDir)
+
+	var stdout bytes.Buffer
+
+	cmd := newTestRootCommand(nestedDir, time.Unix(150, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+	cmd.SetArgs([]string{"id"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if strings.TrimSpace(stdout.String()) != worktreeID {
+		t.Fatalf("id output = %q, want %q", stdout.String(), worktreeID)
 	}
 }
 

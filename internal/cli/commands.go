@@ -11,6 +11,7 @@ import (
 
 	addwt "github.com/Warashi/git-wit/internal/add"
 	dirwt "github.com/Warashi/git-wit/internal/dir"
+	idwt "github.com/Warashi/git-wit/internal/id"
 	lswt "github.com/Warashi/git-wit/internal/ls"
 	mergewt "github.com/Warashi/git-wit/internal/merge"
 	prunewt "github.com/Warashi/git-wit/internal/prune"
@@ -36,6 +37,7 @@ func newCommandTree(deps dependencies) []*cobra.Command {
 	return []*cobra.Command{
 		newAddCommand(deps),
 		newListCommand(deps),
+		newIDCommand(deps),
 		newDirCommand(deps),
 		newRemoveCommand(deps),
 		newMergeCommand(deps),
@@ -126,6 +128,34 @@ func newDirCommand(deps dependencies) *cobra.Command {
 		}
 
 		_, err = fmt.Fprintln(cmd.OutOrStdout(), worktreePath)
+		if err != nil {
+			return fmt.Errorf("write output: %w", err)
+		}
+
+		return nil
+	}
+
+	return cmd
+}
+
+func newIDCommand(deps dependencies) *cobra.Command {
+	//nolint:exhaustruct // Cobra commands are configured field-by-field for readability.
+	cmd := &cobra.Command{}
+	cmd.Use = "id"
+	cmd.Short = "Print the current managed worktree ID"
+	cmd.Args = cobra.NoArgs
+	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+		cwd, err := deps.cwd()
+		if err != nil {
+			return fmt.Errorf("get cwd: %w", err)
+		}
+
+		worktreeID, err := idwt.Run(cmd.Context(), cwd)
+		if err != nil {
+			return fmt.Errorf("run id: %w", err)
+		}
+
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), worktreeID)
 		if err != nil {
 			return fmt.Errorf("write output: %w", err)
 		}

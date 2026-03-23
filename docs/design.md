@@ -124,6 +124,10 @@
 1. `git for-each-ref refs/git-wit/` で一覧を取得し、各BlobからJSONをパースして一覧表示。
 2. **【状態監視】**: Symlinkを多用している場合、親ディレクトリの削除等による「Symlink切れ（Broken Link）」という隠れ状態のリスクがある。対象ワークツリーの健全性チェックを非同期で行い、破損があれば警告マーク（例: `[!]`）を付与する。
 
+### `git-wit id`
+
+現在のディレクトリが managed worktree 配下にある場合、その worktree の ID を標準出力に返す。`git-wit dir <id>` の逆引きとして使う。
+
 ### `git-wit dir <id>`
 
 指定されたIDに紐づくワークツリーの絶対パスを標準出力に返すのみ。ユーザーは `cd $(git-wit dir <id>)` のように利用する。
