@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -16,6 +17,8 @@ const gitDirArgCount = 2
 // Runner executes git commands relative to a repository path.
 type Runner struct {
 	repoDir string
+	stdout  io.Writer
+	stderr  io.Writer
 }
 
 // Result stores stdout and stderr from a git invocation.
@@ -32,7 +35,16 @@ type CommandError struct {
 
 // NewRunner creates a git command runner.
 func NewRunner(repoDir string) Runner {
+	//nolint:exhaustruct // Optional passthrough writers default to nil.
 	return Runner{repoDir: repoDir}
+}
+
+// WithStreams returns a copy of the runner that tees stdout/stderr into the given writers.
+func (r Runner) WithStreams(stdout io.Writer, stderr io.Writer) Runner {
+	r.stdout = stdout
+	r.stderr = stderr
+
+	return r
 }
 
 // Run executes a git command and captures trimmed stdout and stderr.
@@ -65,8 +77,8 @@ func (r Runner) run(ctx context.Context, stdin string, args ...string) (Result, 
 		cmd.Stdin = strings.NewReader(stdin)
 	}
 
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	cmd.Stdout = streamWriter(&stdout, r.stdout)
+	cmd.Stderr = streamWriter(&stderr, r.stderr)
 
 	err := cmd.Run()
 
@@ -127,4 +139,12 @@ func filteredGitEnv() []string {
 	}
 
 	return filtered
+}
+
+func streamWriter(buffer *bytes.Buffer, passthrough io.Writer) io.Writer {
+	if passthrough == nil {
+		return buffer
+	}
+
+	return io.MultiWriter(buffer, passthrough)
 }

@@ -1,6 +1,7 @@
 package git_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -46,6 +47,50 @@ func TestRunnerRun_CommandError(t *testing.T) {
 	if cmdErr.ExitCode() == 0 {
 		t.Fatalf("ExitCode() = %d, want non-zero", cmdErr.ExitCode())
 	}
+}
+
+func TestRunnerWithStreams(t *testing.T) {
+	t.Parallel()
+
+	repoDir := initGitRepo(t)
+
+	t.Run("stdout", func(t *testing.T) {
+		t.Parallel()
+
+		var stdout bytes.Buffer
+
+		runner := git.NewRunner(repoDir).WithStreams(&stdout, nil)
+
+		result, err := runner.Run(context.Background(), "rev-parse", "--show-toplevel")
+		if err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+
+		if stdout.String() != repoDir+"\n" {
+			t.Fatalf("passthrough stdout = %q, want %q", stdout.String(), repoDir+"\n")
+		}
+
+		if result.Stdout != repoDir {
+			t.Fatalf("Run() stdout = %q, want %q", result.Stdout, repoDir)
+		}
+	})
+
+	t.Run("stderr", func(t *testing.T) {
+		t.Parallel()
+
+		var stderr bytes.Buffer
+
+		runner := git.NewRunner(repoDir).WithStreams(nil, &stderr)
+
+		_, err := runner.Run(context.Background(), "show", "refs/does-not-exist")
+		if err == nil {
+			t.Fatal("Run() error = nil, want error")
+		}
+
+		if stderr.Len() == 0 {
+			t.Fatal("passthrough stderr is empty")
+		}
+	})
 }
 
 func initGitRepo(t *testing.T) string {
