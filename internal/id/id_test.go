@@ -19,7 +19,7 @@ func TestRunReturnsManagedWorktreeIDFromSubdirectory(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
 	configureWorktreeRoot(t, repoDir)
 
-	result, err := add.Run(context.Background(), repoDir, time.Unix(100, 0), "memo")
+	result, err := add.Run(context.Background(), repoDir, time.Unix(100, 0), "memo", nil, nil)
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
@@ -59,7 +59,7 @@ func TestRunFailsForOrphanedWorktree(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
 	configureWorktreeRoot(t, repoDir)
 
-	result, err := add.Run(context.Background(), repoDir, time.Unix(200, 0), "memo")
+	result, err := add.Run(context.Background(), repoDir, time.Unix(200, 0), "memo", nil, nil)
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}

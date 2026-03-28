@@ -35,9 +35,11 @@ func TestRootCommand_AddAndDir(t *testing.T) {
 
 	var stdout bytes.Buffer
 
+	var stderr bytes.Buffer
+
 	cmd := newTestRootCommand(repoDir, time.Unix(100, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"add", "memo"})
 
 	err := cmd.Execute()
@@ -54,10 +56,11 @@ func TestRootCommand_AddAndDir(t *testing.T) {
 	worktreePath := fields[1]
 
 	stdout.Reset()
+	stderr.Reset()
 
 	cmd = newTestRootCommand(repoDir, time.Unix(100, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"dir", worktreeID})
 
 	err = cmd.Execute()
@@ -67,6 +70,42 @@ func TestRootCommand_AddAndDir(t *testing.T) {
 
 	if strings.TrimSpace(stdout.String()) != worktreePath {
 		t.Fatalf("dir output = %q, want %q", stdout.String(), worktreePath)
+	}
+}
+
+func TestRootCommand_AddRoutesChildOutputToStderr(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+	testutil.RunGit(t, repoDir, "config", "--add", "wit.add.hook", `printf hook-stdout`)
+	testutil.RunGit(t, repoDir, "config", "--add", "wit.add.hook", `printf hook-stderr >&2`)
+
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(125, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"add", "memo"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	fields := strings.Split(strings.TrimSpace(stdout.String()), "\t")
+	if len(fields) != 2 {
+		t.Fatalf("add output = %q", stdout.String())
+	}
+
+	if !strings.Contains(stderr.String(), "hook-stdout") {
+		t.Fatalf("stderr = %q, want hook stdout", stderr.String())
+	}
+
+	if !strings.Contains(stderr.String(), "hook-stderr") {
+		t.Fatalf("stderr = %q, want hook stderr", stderr.String())
 	}
 }
 
@@ -82,9 +121,11 @@ func TestRootCommand_ID(t *testing.T) {
 
 	var stdout bytes.Buffer
 
+	var stderr bytes.Buffer
+
 	cmd := newTestRootCommand(nestedDir, time.Unix(150, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"id"})
 
 	err := cmd.Execute()
@@ -107,9 +148,11 @@ func TestRootCommand_ListRemoveAndPrune(t *testing.T) {
 
 	var stdout bytes.Buffer
 
+	var stderr bytes.Buffer
+
 	cmd := newTestRootCommand(repoDir, time.Unix(200, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"ls"})
 
 	err := cmd.Execute()
@@ -122,10 +165,11 @@ func TestRootCommand_ListRemoveAndPrune(t *testing.T) {
 	}
 
 	stdout.Reset()
+	stderr.Reset()
 
 	cmd = newTestRootCommand(repoDir, time.Unix(200, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"rm", worktreeID})
 
 	err = cmd.Execute()
@@ -134,10 +178,11 @@ func TestRootCommand_ListRemoveAndPrune(t *testing.T) {
 	}
 
 	stdout.Reset()
+	stderr.Reset()
 
 	cmd = newTestRootCommand(repoDir, time.Unix(200, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"prune"})
 
 	err = cmd.Execute()
@@ -163,9 +208,11 @@ func TestRootCommand_MergeAndPruneWarnings(t *testing.T) {
 
 	var stdout bytes.Buffer
 
+	var stderr bytes.Buffer
+
 	cmd := newTestRootCommand(repoDir, time.Unix(300, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"merge", "--rm", worktreeID})
 
 	err := cmd.Execute()
@@ -187,10 +234,11 @@ func TestRootCommand_MergeAndPruneWarnings(t *testing.T) {
 	}
 
 	stdout.Reset()
+	stderr.Reset()
 
 	cmd = newTestRootCommand(repoDir, time.Unix(300, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"prune"})
 
 	err = cmd.Execute()
@@ -207,6 +255,40 @@ func TestRootCommand_MergeAndPruneWarnings(t *testing.T) {
 	}
 }
 
+func TestRootCommand_MergePassesConflictOutputToStdout(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	worktreeID, worktreePath := addWorktree(t, repoDir, "memo")
+	writeFile(t, repoDir, "shared.txt", "main\n")
+	testutil.RunGit(t, repoDir, "add", "shared.txt")
+	testutil.RunGit(t, repoDir, "commit", "-m", "main change")
+
+	writeFile(t, worktreePath, "shared.txt", "worktree\n")
+	testutil.RunGit(t, worktreePath, "add", "shared.txt")
+	testutil.RunGit(t, worktreePath, "commit", "-m", "worktree change")
+
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(350, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"merge", worktreeID})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() error = nil, want error")
+	}
+
+	if !strings.Contains(stdout.String(), "CONFLICT") {
+		t.Fatalf("stdout = %q, want conflict output", stdout.String())
+	}
+}
+
 func TestRootCommand_SystemPruneRemovesUnknownOrphans(t *testing.T) {
 	t.Parallel()
 
@@ -215,9 +297,11 @@ func TestRootCommand_SystemPruneRemovesUnknownOrphans(t *testing.T) {
 
 	var stdout bytes.Buffer
 
+	var stderr bytes.Buffer
+
 	cmd := newTestRootCommand(repoDir, time.Unix(400, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"add", "memo"})
 
 	err := cmd.Execute()
@@ -238,10 +322,11 @@ func TestRootCommand_SystemPruneRemovesUnknownOrphans(t *testing.T) {
 	}
 
 	stdout.Reset()
+	stderr.Reset()
 
 	cmd = newTestRootCommand(repoDir, time.Unix(400, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"prune", "--system", "--yes"})
 
 	err = cmd.Execute()
@@ -270,9 +355,11 @@ func TestRootCommand_SystemPruneLeavesRepoOwnedWorktreesUntouched(t *testing.T) 
 
 	var stdout bytes.Buffer
 
+	var stderr bytes.Buffer
+
 	cmd := newTestRootCommand(repoDir, time.Unix(500, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"prune", "--system", "--yes"})
 
 	err := cmd.Execute()
@@ -325,10 +412,12 @@ func TestRootCommand_SystemPruneRequiresYesForNonInteractiveInput(t *testing.T) 
 
 	var stdout bytes.Buffer
 
+	var stderr bytes.Buffer
+
 	cmd := newTestRootCommand(repoDir, time.Unix(600, 0))
 	cmd.SetIn(inputFile)
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"prune", "--system"})
 
 	err = cmd.Execute()
@@ -362,9 +451,11 @@ func addWorktree(t *testing.T, repoDir string, memo string) (string, string) {
 
 	var stdout bytes.Buffer
 
+	var stderr bytes.Buffer
+
 	cmd := newTestRootCommand(repoDir, time.Unix(100, 0))
 	cmd.SetOut(&stdout)
-	cmd.SetErr(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"add", memo})
 
 	err := cmd.Execute()

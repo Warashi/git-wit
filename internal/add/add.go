@@ -4,7 +4,7 @@ package add
 import (
 	"context"
 	"fmt"
-	"os"
+	"io"
 	"time"
 
 	"github.com/Warashi/git-wit/internal/config"
@@ -22,7 +22,7 @@ type Result struct {
 }
 
 // Run creates a managed worktree and synchronizes the initial snapshot.
-func Run(ctx context.Context, cwd string, now time.Time, memo string) (Result, error) {
+func Run(ctx context.Context, cwd string, now time.Time, memo string, _ io.Writer, stderr io.Writer) (Result, error) {
 	repo, err := repository.Discover(ctx, cwd)
 	if err != nil {
 		return Result{}, fmt.Errorf("discover repository: %w", err)
@@ -43,7 +43,7 @@ func Run(ctx context.Context, cwd string, now time.Time, memo string) (Result, e
 
 	worktreePath := repo.WorktreePath(worktreeID)
 
-	_, err = repo.Runner().Run(ctx, "worktree", "add", "-d", worktreePath)
+	_, err = repo.Runner().WithStreams(stderr, stderr).Run(ctx, "worktree", "add", "-d", worktreePath)
 	if err != nil {
 		return Result{}, fmt.Errorf("create worktree: %w", err)
 	}
@@ -59,7 +59,7 @@ func Run(ctx context.Context, cwd string, now time.Time, memo string) (Result, e
 	}
 
 	if len(cfg.AddHooks) > 0 {
-		err = hook.Run(ctx, worktreePath, cfg.AddHooks, os.Stdout, os.Stderr)
+		err = hook.Run(ctx, worktreePath, cfg.AddHooks, stderr, stderr)
 		if err != nil {
 			return Result{}, fmt.Errorf("run add hooks: %w", err)
 		}

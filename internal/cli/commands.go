@@ -57,7 +57,7 @@ func newAddCommand(deps dependencies) *cobra.Command {
 			return fmt.Errorf("get cwd: %w", err)
 		}
 
-		result, err := addwt.Run(cmd.Context(), cwd, deps.now(), args[0])
+		result, err := addwt.Run(cmd.Context(), cwd, deps.now(), args[0], cmd.OutOrStdout(), cmd.ErrOrStderr())
 		if err != nil {
 			return fmt.Errorf("run add: %w", err)
 		}
@@ -178,7 +178,7 @@ func newRemoveCommand(deps dependencies) *cobra.Command {
 			return fmt.Errorf("get cwd: %w", err)
 		}
 
-		err = rmwt.Run(cmd.Context(), cwd, args[0])
+		err = rmwt.Run(cmd.Context(), cwd, args[0], cmd.OutOrStdout(), cmd.ErrOrStderr())
 		if err != nil {
 			return fmt.Errorf("run rm: %w", err)
 		}
@@ -204,7 +204,7 @@ func newMergeCommand(deps dependencies) *cobra.Command {
 			return fmt.Errorf("get cwd: %w", err)
 		}
 
-		err = mergewt.Run(cmd.Context(), cwd, args[0], remove)
+		err = mergewt.Run(cmd.Context(), cwd, args[0], remove, cmd.OutOrStdout(), cmd.ErrOrStderr())
 		if err != nil {
 			return fmt.Errorf("run merge: %w", err)
 		}

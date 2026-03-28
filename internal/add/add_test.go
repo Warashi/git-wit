@@ -27,7 +27,7 @@ func TestRunSkipsIgnoredAndUntrackedByDefault(t *testing.T) {
 	writeFile(t, filepath.Join(repoDir, "ignored", "a.txt"), "ignored")
 	writeFile(t, filepath.Join(repoDir, "scratch.txt"), "scratch")
 
-	result, err := add.Run(context.Background(), repoDir, time.Unix(100, 0), "memo")
+	result, err := add.Run(context.Background(), repoDir, time.Unix(100, 0), "memo", nil, nil)
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
@@ -52,7 +52,7 @@ func TestRunExecutesAddHooksInWorkingDirectory(t *testing.T) {
 	testutil.RunGit(t, repoDir, "config", "--add", "wit.add.hook", `pwd > hook-cwd.txt`)
 	testutil.RunGit(t, repoDir, "config", "--add", "wit.add.hook", `printf second > hook-second.txt`)
 
-	result, err := add.Run(context.Background(), repoDir, time.Unix(200, 0), "memo")
+	result, err := add.Run(context.Background(), repoDir, time.Unix(200, 0), "memo", nil, nil)
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
@@ -81,7 +81,7 @@ func TestRunFailsWhenAddHookFails(t *testing.T) {
 	testutil.RunGit(t, repoDir, "config", "wit.worktree.root", worktreeRoot)
 	testutil.RunGit(t, repoDir, "config", "--add", "wit.add.hook", `printf hooked > hook-ran.txt; exit 1`)
 
-	_, err := add.Run(context.Background(), repoDir, time.Unix(300, 0), "memo")
+	_, err := add.Run(context.Background(), repoDir, time.Unix(300, 0), "memo", nil, nil)
 	if err == nil {
 		t.Fatal("Run() error = nil, want error")
 	}

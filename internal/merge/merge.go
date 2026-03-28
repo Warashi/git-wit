@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/Warashi/git-wit/internal/metadata"
 	"github.com/Warashi/git-wit/internal/repository"
@@ -15,7 +16,7 @@ import (
 var errUnknownWorktreeID = errors.New("unknown worktree id")
 
 // Run merges the worktree HEAD into the current branch.
-func Run(ctx context.Context, cwd string, worktreeID string, remove bool) error {
+func Run(ctx context.Context, cwd string, worktreeID string, remove bool, stdout io.Writer, stderr io.Writer) error {
 	err := worktree.ValidateID(worktreeID)
 	if err != nil {
 		return fmt.Errorf("validate id: %w", err)
@@ -43,13 +44,13 @@ func Run(ctx context.Context, cwd string, worktreeID string, remove bool) error 
 		return fmt.Errorf("resolve worktree head: %w", err)
 	}
 
-	_, err = repo.Runner().Run(ctx, "merge", result.Stdout)
+	_, err = repo.Runner().WithStreams(stdout, stderr).Run(ctx, "merge", result.Stdout)
 	if err != nil {
 		return fmt.Errorf("merge worktree head: %w", err)
 	}
 
 	if remove {
-		err = removewt.Run(ctx, cwd, worktreeID)
+		err = removewt.Run(ctx, cwd, worktreeID, stdout, stderr)
 		if err != nil {
 			return fmt.Errorf("remove merged worktree: %w", err)
 		}
