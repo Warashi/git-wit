@@ -8,6 +8,7 @@ linters:
   disable:
     - wsl
     - depguard
+    - noinlineerr
 
 formatters:
   enable:
