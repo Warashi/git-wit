@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Warashi/git-wit/internal/config"
 	"github.com/Warashi/git-wit/internal/git"
 	"github.com/google/uuid"
 )
@@ -268,16 +267,6 @@ func (r Repository) CurrentID() (string, error) {
 	}
 
 	return rel, nil
-}
-
-// LoadSyncConfig reads snapshot-related git-wit settings from git config.
-func (r Repository) LoadSyncConfig(ctx context.Context) (config.Config, error) {
-	cfg, err := config.Load(ctx, r.runner)
-	if err != nil {
-		return config.Config{}, fmt.Errorf("load sync config: %w", err)
-	}
-
-	return cfg, nil
 }
 
 func isMissingConfig(err error, target *git.CommandError) bool {
