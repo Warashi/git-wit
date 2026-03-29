@@ -7,9 +7,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/Warashi/git-wit/internal/hook"
-	"github.com/Warashi/git-wit/internal/snapshot"
 	"github.com/Warashi/git-wit/internal/wit/catalog"
+	"github.com/Warashi/git-wit/internal/wit/sync"
 )
 
 // Result describes a created managed worktree.
@@ -44,21 +43,9 @@ func Run(ctx context.Context, cwd string, now time.Time, memo string, _ io.Write
 		return Result{}, fmt.Errorf("create worktree: %w", err)
 	}
 
-	cfg, err := repo.LoadSyncConfig(ctx)
+	err = sync.Initialize(ctx, repo.Runner(), repo.Root(), worktreePath, stderr, stderr)
 	if err != nil {
-		return Result{}, fmt.Errorf("load snapshot config: %w", err)
-	}
-
-	err = snapshot.Apply(ctx, repo.Runner(), repo.Root(), worktreePath, cfg)
-	if err != nil {
-		return Result{}, fmt.Errorf("apply snapshot: %w", err)
-	}
-
-	if len(cfg.AddHooks) > 0 {
-		err = hook.Run(ctx, worktreePath, cfg.AddHooks, stderr, stderr)
-		if err != nil {
-			return Result{}, fmt.Errorf("run add hooks: %w", err)
-		}
+		return Result{}, fmt.Errorf("initialize worktree sync: %w", err)
 	}
 
 	return Result{
