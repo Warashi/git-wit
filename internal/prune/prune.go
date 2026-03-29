@@ -10,9 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/Warashi/git-wit/internal/git"
-	"github.com/Warashi/git-wit/internal/metadata"
-	"github.com/Warashi/git-wit/internal/repository"
-	"github.com/Warashi/git-wit/internal/worktree"
+	"github.com/Warashi/git-wit/internal/wit/catalog"
 )
 
 var errWorktreeOwnerUnknown = errors.New("worktree owner unknown")
@@ -27,12 +25,12 @@ type Result struct {
 
 // Run reconciles refs and managed worktree directories.
 func Run(ctx context.Context, cwd string) (Result, error) {
-	repo, err := repository.Discover(ctx, cwd)
+	repo, err := catalog.Open(ctx, cwd)
 	if err != nil {
 		return Result{}, fmt.Errorf("discover repository: %w", err)
 	}
 
-	items, err := metadata.List(ctx, repo.Runner())
+	items, err := repo.List(ctx)
 	if err != nil {
 		return Result{}, fmt.Errorf("list metadata: %w", err)
 	}
@@ -59,7 +57,7 @@ func Run(ctx context.Context, cwd string) (Result, error) {
 
 // ScanSystem finds orphaned managed worktree directories under the configured root.
 func ScanSystem(ctx context.Context, cwd string) (Result, error) {
-	repo, err := repository.Discover(ctx, cwd)
+	repo, err := catalog.Open(ctx, cwd)
 	if err != nil {
 		return Result{}, fmt.Errorf("discover repository: %w", err)
 	}
@@ -86,7 +84,7 @@ func ScanSystem(ctx context.Context, cwd string) (Result, error) {
 		}
 
 		worktreeID := entry.Name()
-		if worktree.ValidateID(worktreeID) != nil {
+		if catalog.ValidateID(worktreeID) != nil {
 			continue
 		}
 
@@ -132,8 +130,8 @@ func RemoveSystemOrphans(orphanDirs []string) ([]string, error) {
 
 func pruneRefs(
 	ctx context.Context,
-	repo repository.Repository,
-	items []metadata.Metadata,
+	repo catalog.Repository,
+	items []catalog.Record,
 	result *Result,
 ) (map[string]struct{}, error) {
 	refIDs := make(map[string]struct{}, len(items))
@@ -145,7 +143,7 @@ func pruneRefs(
 
 		_, statErr := os.Stat(worktreePath)
 		if os.IsNotExist(statErr) {
-			err := metadata.Delete(ctx, repo.Runner(), item.ID)
+			err := repo.Delete(ctx, item.ID)
 			if err != nil {
 				return nil, fmt.Errorf("delete orphan ref: %w", err)
 			}
@@ -170,7 +168,7 @@ func pruneRefs(
 	return refIDs, nil
 }
 
-func collectOrphanDirs(repo repository.Repository, refIDs map[string]struct{}, result *Result) error {
+func collectOrphanDirs(repo catalog.Repository, refIDs map[string]struct{}, result *Result) error {
 	entries, err := os.ReadDir(repo.WorktreeRoot())
 	if err != nil {
 		if os.IsNotExist(err) {

@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Warashi/git-wit/internal/metadata"
-	"github.com/Warashi/git-wit/internal/repository"
+	"github.com/Warashi/git-wit/internal/wit/catalog"
 )
 
 // Entry is one row of ls output.
@@ -20,12 +19,12 @@ type Entry struct {
 
 // Run lists managed worktrees.
 func Run(ctx context.Context, cwd string) ([]Entry, error) {
-	repo, err := repository.Discover(ctx, cwd)
+	repo, err := catalog.Open(ctx, cwd)
 	if err != nil {
 		return nil, fmt.Errorf("discover repository: %w", err)
 	}
 
-	items, err := metadata.List(ctx, repo.Runner())
+	items, err := repo.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list metadata: %w", err)
 	}

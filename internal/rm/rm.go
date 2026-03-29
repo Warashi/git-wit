@@ -7,26 +7,24 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/Warashi/git-wit/internal/metadata"
-	"github.com/Warashi/git-wit/internal/repository"
-	"github.com/Warashi/git-wit/internal/worktree"
+	"github.com/Warashi/git-wit/internal/wit/catalog"
 )
 
 var errUnknownWorktreeID = errors.New("unknown worktree id")
 
 // Run removes a managed worktree and its metadata ref.
 func Run(ctx context.Context, cwd string, worktreeID string, _ io.Writer, stderr io.Writer) error {
-	err := worktree.ValidateID(worktreeID)
+	err := catalog.ValidateID(worktreeID)
 	if err != nil {
 		return fmt.Errorf("validate id: %w", err)
 	}
 
-	repo, err := repository.Discover(ctx, cwd)
+	repo, err := catalog.Open(ctx, cwd)
 	if err != nil {
 		return fmt.Errorf("discover repository: %w", err)
 	}
 
-	exists, err := metadata.Exists(ctx, repo.Runner(), worktreeID)
+	exists, err := repo.Exists(ctx, worktreeID)
 	if err != nil {
 		return fmt.Errorf("check metadata ref: %w", err)
 	}
@@ -40,7 +38,7 @@ func Run(ctx context.Context, cwd string, worktreeID string, _ io.Writer, stderr
 		return fmt.Errorf("remove worktree: %w", err)
 	}
 
-	err = metadata.Delete(ctx, repo.Runner(), worktreeID)
+	err = repo.Delete(ctx, worktreeID)
 	if err != nil {
 		return fmt.Errorf("delete metadata ref: %w", err)
 	}

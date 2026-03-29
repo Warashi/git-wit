@@ -5,28 +5,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 
-	"github.com/Warashi/git-wit/internal/metadata"
-	"github.com/Warashi/git-wit/internal/repository"
-	"github.com/Warashi/git-wit/internal/worktree"
+	"github.com/Warashi/git-wit/internal/wit/catalog"
 )
 
 var errNotManagedWorktree = errors.New("not in a managed worktree")
 
 // Run returns the current managed worktree ID.
 func Run(ctx context.Context, cwd string) (string, error) {
-	repo, err := repository.Discover(ctx, cwd)
+	repo, err := catalog.Open(ctx, cwd)
 	if err != nil {
 		return "", fmt.Errorf("discover repository: %w", err)
 	}
 
-	worktreeID, err := resolveWorktreeID(repo)
+	worktreeID, err := repo.CurrentID()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("resolve current worktree id: %w", err)
 	}
 
-	exists, err := metadata.Exists(ctx, repo.Runner(), worktreeID)
+	exists, err := repo.Exists(ctx, worktreeID)
 	if err != nil {
 		return "", fmt.Errorf("check metadata ref: %w", err)
 	}
@@ -36,22 +33,4 @@ func Run(ctx context.Context, cwd string) (string, error) {
 	}
 
 	return worktreeID, nil
-}
-
-func resolveWorktreeID(repo repository.Repository) (string, error) {
-	rel, err := filepath.Rel(repo.WorktreeRoot(), repo.Root())
-	if err != nil {
-		return "", fmt.Errorf("rel worktree path: %w", err)
-	}
-
-	if rel == "." || filepath.Dir(rel) != "." {
-		return "", errNotManagedWorktree
-	}
-
-	validationErr := worktree.ValidateID(rel)
-	if validationErr != nil {
-		return "", fmt.Errorf("validate worktree id: %w", validationErr)
-	}
-
-	return rel, nil
 }

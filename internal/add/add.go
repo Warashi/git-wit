@@ -7,12 +7,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/Warashi/git-wit/internal/config"
 	"github.com/Warashi/git-wit/internal/hook"
-	"github.com/Warashi/git-wit/internal/metadata"
-	"github.com/Warashi/git-wit/internal/repository"
 	"github.com/Warashi/git-wit/internal/snapshot"
-	"github.com/Warashi/git-wit/internal/worktree"
+	"github.com/Warashi/git-wit/internal/wit/catalog"
 )
 
 // Result describes a created managed worktree.
@@ -23,15 +20,14 @@ type Result struct {
 
 // Run creates a managed worktree and synchronizes the initial snapshot.
 func Run(ctx context.Context, cwd string, now time.Time, memo string, _ io.Writer, stderr io.Writer) (Result, error) {
-	repo, err := repository.Discover(ctx, cwd)
+	repo, err := catalog.Open(ctx, cwd)
 	if err != nil {
 		return Result{}, fmt.Errorf("discover repository: %w", err)
 	}
 
-	worktreeID := worktree.NewID()
-	item := metadata.New(worktreeID, now, memo)
+	record := catalog.NewRecord(now, memo)
 
-	err = metadata.Store(ctx, repo.Runner(), item)
+	err = repo.Store(ctx, record)
 	if err != nil {
 		return Result{}, fmt.Errorf("store metadata: %w", err)
 	}
@@ -41,14 +37,14 @@ func Run(ctx context.Context, cwd string, now time.Time, memo string, _ io.Write
 		return Result{}, fmt.Errorf("ensure worktree root: %w", err)
 	}
 
-	worktreePath := repo.WorktreePath(worktreeID)
+	worktreePath := repo.WorktreePath(record.ID)
 
 	_, err = repo.Runner().WithStreams(stderr, stderr).Run(ctx, "worktree", "add", "-d", worktreePath)
 	if err != nil {
 		return Result{}, fmt.Errorf("create worktree: %w", err)
 	}
 
-	cfg, err := config.Load(ctx, repo.Runner())
+	cfg, err := repo.LoadSyncConfig(ctx)
 	if err != nil {
 		return Result{}, fmt.Errorf("load snapshot config: %w", err)
 	}
@@ -66,7 +62,7 @@ func Run(ctx context.Context, cwd string, now time.Time, memo string, _ io.Write
 	}
 
 	return Result{
-		ID:   worktreeID,
+		ID:   record.ID,
 		Path: worktreePath,
 	}, nil
 }

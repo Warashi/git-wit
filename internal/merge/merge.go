@@ -7,27 +7,25 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/Warashi/git-wit/internal/metadata"
-	"github.com/Warashi/git-wit/internal/repository"
 	removewt "github.com/Warashi/git-wit/internal/rm"
-	"github.com/Warashi/git-wit/internal/worktree"
+	"github.com/Warashi/git-wit/internal/wit/catalog"
 )
 
 var errUnknownWorktreeID = errors.New("unknown worktree id")
 
 // Run merges the worktree HEAD into the current branch.
 func Run(ctx context.Context, cwd string, worktreeID string, remove bool, stdout io.Writer, stderr io.Writer) error {
-	err := worktree.ValidateID(worktreeID)
+	err := catalog.ValidateID(worktreeID)
 	if err != nil {
 		return fmt.Errorf("validate id: %w", err)
 	}
 
-	repo, err := repository.Discover(ctx, cwd)
+	repo, err := catalog.Open(ctx, cwd)
 	if err != nil {
 		return fmt.Errorf("discover repository: %w", err)
 	}
 
-	exists, err := metadata.Exists(ctx, repo.Runner(), worktreeID)
+	exists, err := repo.Exists(ctx, worktreeID)
 	if err != nil {
 		return fmt.Errorf("check metadata ref: %w", err)
 	}
