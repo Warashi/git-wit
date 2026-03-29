@@ -11,6 +11,7 @@
 ## 実装方針
 
 - このプロジェクトでは破壊的変更を前提として最適化を考えてよい。後方互換より、設計の一貫性と将来の実装速度を優先する。
+- Richard Gabriel の LoB （Locality of Behavior） を意識して、コードとドキュメントは関連する内容を近くに置くことを心がける。
 - パッケージ構成は `package by feature` を原則とする。`add`、`ls`、`rm`、`merge`、`prune` などのユースケース単位で責務を閉じ、Git 操作やメタデータ操作も feature を起点に整理する。
 - ただし feature をまたぐ純粋な基盤処理だけは共有パッケージに切り出してよい。共有化は重複除去よりも依存関係の明確化を優先して判断する。
 - 実装は [`docs/design.md`](docs/design.md) の状態空間と CLI 契約に整合していること。とくに `refs/git-wit/<ID>`、JSON メタデータ、`ignored` / `untracked` の同期ルールを勝手に簡略化しない。
