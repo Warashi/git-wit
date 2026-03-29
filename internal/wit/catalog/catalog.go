@@ -1,4 +1,4 @@
-// Package catalog manages git-wit worktree IDs, metadata refs, and repository context.
+// Package catalog owns managed worktree identity, metadata refs, and repository context.
 package catalog
 
 import (

@@ -38,6 +38,21 @@
 
 状態（State）は以下のファイルシステムとGit内部データベースに分散して保持され、ツールはこれらの「結果整合性」を管理する。
 
+### 4.0. 実装上の責務分割 (Implementation Locality)
+
+LoB を保つため、実装は状態遷移を主軸にし、共有境界は最小限に固定する。
+
+* `internal/wit/create`: `git-wit add` の状態遷移。ID 採番、metadata 保存、worktree 作成、初期同期、hook 実行を扱う。
+* `internal/wit/query`: `git-wit ls` / `dir` / `id` の読み取り系。managed worktree の一覧、逆引き、現在地解決を扱う。
+* `internal/wit/integrate`: `git-wit merge` / `rm` の変更系。merge と削除を 1 つの lifecycle として扱う。
+* `internal/wit/reconcile`: `git-wit prune` / `prune --system` の整合性回復。孤立 ref、孤立 dir、broken symlink の検出と修復を扱う。
+* `internal/wit/catalog`: feature 共有の最小境界。repo discovery、worktree root、UUIDv7、`refs/git-wit/<ID>`、metadata JSON を扱う。
+* `internal/wit/sync`: feature 共有の最小境界。`wit.*` の同期設定、ignored / untracked の収集、copy / symlink、add hook を扱う。
+* `internal/cli`: Cobra の入出力と formatting のみを持ち、Git や metadata の直接操作は持たない。
+* `internal/git`: git subprocess 実行だけを担う platform package。
+
+この文書は高レベルの契約と状態モデルだけを持ち、各 package の局所 invariant は `internal/wit/*/doc.go` に置く。
+
 ### 4.1. データ構造の置き場所
 
 1. **ファイルシステム (実体)**
