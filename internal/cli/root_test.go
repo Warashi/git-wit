@@ -222,9 +222,8 @@ func TestRootCommand_MergeAndPruneWarnings(t *testing.T) {
 
 	testutil.RunGit(t, repoDir, "update-ref", "-d", "refs/git-wit/"+worktreeID)
 
-	worktreeRoot := filepath.Dir(worktreePath)
-	mustMkdir(t, filepath.Join(worktreeRoot, "orphan"))
-	writeFile(t, filepath.Join(worktreeRoot, "orphan"), "note", "orphan\n")
+	orphanID, _ := addWorktree(t, repoDir, "orphan")
+	testutil.RunGit(t, repoDir, "update-ref", "-d", "refs/git-wit/"+orphanID)
 
 	_, brokenPath := addWorktree(t, repoDir, "broken")
 

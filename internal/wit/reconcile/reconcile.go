@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Warashi/git-wit/internal/git"
 	"github.com/Warashi/git-wit/internal/wit/catalog"
@@ -46,7 +47,7 @@ func Prune(ctx context.Context, cwd string) (Result, error) {
 		return Result{}, err
 	}
 
-	err = collectOrphanDirs(repo, refIDs, &result)
+	err = collectOrphanDirs(ctx, repo, refIDs, &result)
 	if err != nil {
 		return Result{}, err
 	}
@@ -167,7 +168,7 @@ func pruneRefs(
 	return refIDs, nil
 }
 
-func collectOrphanDirs(repo catalog.Repository, refIDs map[string]struct{}, result *Result) error {
+func collectOrphanDirs(ctx context.Context, repo catalog.Repository, refIDs map[string]struct{}, result *Result) error {
 	entries, err := os.ReadDir(repo.WorktreeRoot())
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -176,6 +177,13 @@ func collectOrphanDirs(repo catalog.Repository, refIDs map[string]struct{}, resu
 
 		return fmt.Errorf("read worktree root: %w", err)
 	}
+
+	expected, err := git.NewRunner(repo.Root()).Run(ctx, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	if err != nil {
+		return fmt.Errorf("resolve common git directory: %w", err)
+	}
+
+	expectedDir := strings.TrimSpace(expected.Stdout)
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -186,10 +194,23 @@ func collectOrphanDirs(repo catalog.Repository, refIDs map[string]struct{}, resu
 			continue
 		}
 
-		result.OrphanDirs = append(result.OrphanDirs, filepath.Join(repo.WorktreeRoot(), entry.Name()))
+		worktreePath := filepath.Join(repo.WorktreeRoot(), entry.Name())
+
+		if isWorktreeOf(ctx, worktreePath, expectedDir) {
+			result.OrphanDirs = append(result.OrphanDirs, worktreePath)
+		}
 	}
 
 	return nil
+}
+
+func isWorktreeOf(ctx context.Context, worktreePath string, expectedGitCommonDir string) bool {
+	result, err := git.NewRunner(worktreePath).Run(ctx, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	if err != nil {
+		return false
+	}
+
+	return strings.TrimSpace(result.Stdout) == expectedGitCommonDir
 }
 
 func findBrokenSymlinks(root string) ([]string, error) {
