@@ -93,8 +93,9 @@ func pullRequestNumber(ctx context.Context, path string, branch string) string {
 		return ""
 	}
 
-	// #nosec G204 -- gh is the intended executable, invoked directly (no shell), with a
-	// validated branch name and a worktree path resolved from trusted local git state.
+	// #nosec G204 -- gh is invoked directly via exec (no shell), so branch cannot inject
+	// additional shell commands. The only remaining risk is gh mistaking branch for a flag,
+	// which the leading-"-" check above already rules out.
 	cmd := exec.CommandContext(ctx, ghExecutable, "pr", "view", branch, "--json", "number", "--jq", ".number")
 	cmd.Dir = path
 
