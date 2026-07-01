@@ -28,11 +28,14 @@ func newListCommand(deps dependencies) *cobra.Command {
 		for _, entry := range entries {
 			_, err = fmt.Fprintf(
 				cmd.OutOrStdout(),
-				"%s\t%s\t%s\t%s\n",
+				"%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 				entry.ID,
 				entry.CreatedAt.Format(time.RFC3339),
 				entry.Path,
 				entry.Memo,
+				displayOrDash(entry.Branch),
+				displayOrDash(entry.Head),
+				prDisplay(entry.PRNumber),
 			)
 			if err != nil {
 				return fmt.Errorf("write output: %w", err)
@@ -43,4 +46,27 @@ func newListCommand(deps dependencies) *cobra.Command {
 	}
 
 	return cmd
+}
+
+const noValuePlaceholder = "-"
+
+// displayOrDash renders a placeholder for empty fields (e.g. detached HEAD
+// has no branch) so column alignment stays predictable for tab-separated
+// output.
+func displayOrDash(value string) string {
+	if value == "" {
+		return noValuePlaceholder
+	}
+
+	return value
+}
+
+// prDisplay renders a pull request number with a leading "#", or a
+// placeholder when no pull request could be resolved.
+func prDisplay(number string) string {
+	if number == "" {
+		return noValuePlaceholder
+	}
+
+	return "#" + number
 }

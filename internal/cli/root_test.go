@@ -160,8 +160,29 @@ func TestRootCommand_ListRemoveAndPrune(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	if !strings.Contains(stdout.String(), "\tmemo\n") {
-		t.Fatalf("ls output = %q", stdout.String())
+	line := strings.TrimSuffix(stdout.String(), "\n")
+
+	fields := strings.Split(line, "\t")
+	if len(fields) != 7 {
+		t.Fatalf("ls output = %q, want 7 tab-separated fields", stdout.String())
+	}
+
+	if fields[3] != "memo" {
+		t.Fatalf("ls memo field = %q, want %q", fields[3], "memo")
+	}
+
+	// A freshly created worktree is a detached HEAD with no branch and no
+	// pull request, but must report its HEAD commit.
+	if fields[4] != "-" {
+		t.Fatalf("ls branch field = %q, want %q", fields[4], "-")
+	}
+
+	if fields[5] == "" || fields[5] == "-" {
+		t.Fatalf("ls head field = %q, want a commit hash", fields[5])
+	}
+
+	if fields[6] != "-" {
+		t.Fatalf("ls pr field = %q, want %q", fields[6], "-")
 	}
 
 	stdout.Reset()
