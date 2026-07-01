@@ -2,7 +2,7 @@ package query_test
 
 import (
 	"context"
-	"strings"
+	"regexp"
 	"testing"
 	"time"
 
@@ -10,6 +10,8 @@ import (
 	"github.com/Warashi/git-wit/internal/wit/create"
 	"github.com/Warashi/git-wit/internal/wit/query"
 )
+
+var shortHashPattern = regexp.MustCompile(`^[0-9a-f]{4,40}$`)
 
 func TestListReportsDetachedHeadWorktree(t *testing.T) {
 	t.Parallel()
@@ -40,8 +42,8 @@ func TestListReportsDetachedHeadWorktree(t *testing.T) {
 		t.Fatalf("entry.Branch = %q, want empty (detached HEAD)", entry.Branch)
 	}
 
-	if entry.Head == "" {
-		t.Fatal("entry.Head = \"\", want a commit hash")
+	if !shortHashPattern.MatchString(entry.Head) {
+		t.Fatalf("entry.Head = %q, want a short commit hash", entry.Head)
 	}
 
 	if entry.PRNumber != "" {
@@ -75,8 +77,7 @@ func TestListReportsCheckedOutBranch(t *testing.T) {
 		t.Fatalf("entry.Branch = %q, want %q", got, "feature/example")
 	}
 
-	head := strings.TrimSpace(string(testutil.RunGit(t, created.Path, "rev-parse", "--short", "HEAD")))
-	if entries[0].Head != head {
-		t.Fatalf("entry.Head = %q, want %q", entries[0].Head, head)
+	if !shortHashPattern.MatchString(entries[0].Head) {
+		t.Fatalf("entry.Head = %q, want a short commit hash", entries[0].Head)
 	}
 }

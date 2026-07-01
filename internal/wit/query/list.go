@@ -82,11 +82,19 @@ func pullRequestNumber(ctx context.Context, path string, branch string) string {
 		return ""
 	}
 
+	// gh interprets a leading "-" as a flag rather than a branch name; git
+	// itself refuses to create such branches, but guard defensively since
+	// branch is passed straight through as a positional argument below.
+	if strings.HasPrefix(branch, "-") {
+		return ""
+	}
+
 	if _, err := exec.LookPath(ghExecutable); err != nil {
 		return ""
 	}
 
-	// #nosec G204 -- gh is the intended executable; branch/path come from trusted local git state.
+	// #nosec G204 -- gh is the intended executable, invoked directly (no shell), with a
+	// validated branch name and a worktree path resolved from trusted local git state.
 	cmd := exec.CommandContext(ctx, ghExecutable, "pr", "view", branch, "--json", "number", "--jq", ".number")
 	cmd.Dir = path
 
