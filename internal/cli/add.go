@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Warashi/git-wit/internal/wit/create"
 	"github.com/spf13/cobra"
@@ -12,14 +13,21 @@ func newAddCommand(deps dependencies) *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Use = "add <memo>"
 	cmd.Short = "Create a managed worktree"
-	cmd.Args = cobra.ExactArgs(1)
+	cmd.Args = cobra.MinimumNArgs(1)
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cwd, err := deps.cwd()
 		if err != nil {
 			return fmt.Errorf("get cwd: %w", err)
 		}
 
-		result, err := create.Create(cmd.Context(), cwd, deps.now(), args[0], cmd.OutOrStdout(), cmd.ErrOrStderr())
+		result, err := create.Create(
+			cmd.Context(),
+			cwd,
+			deps.now(),
+			strings.Join(args, " "),
+			cmd.OutOrStdout(),
+			cmd.ErrOrStderr(),
+		)
 		if err != nil {
 			return fmt.Errorf("run add: %w", err)
 		}

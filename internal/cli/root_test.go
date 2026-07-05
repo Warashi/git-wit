@@ -73,6 +73,54 @@ func TestRootCommand_AddAndDir(t *testing.T) {
 	}
 }
 
+func TestRootCommand_AddAcceptsMemoWithSpacesWithoutQuotes(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(100, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"add", "memo", "with", "spaces"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	fields := strings.Split(strings.TrimSpace(stdout.String()), "\t")
+	if len(fields) != 2 {
+		t.Fatalf("add output = %q", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+
+	cmd = newTestRootCommand(repoDir, time.Unix(100, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"ls"})
+
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	row := strings.Split(strings.TrimSuffix(stdout.String(), "\n"), "\t")
+	if len(row) != 7 {
+		t.Fatalf("ls output = %q, want 7 tab-separated fields", stdout.String())
+	}
+
+	if row[3] != "memo with spaces" {
+		t.Fatalf("ls memo field = %q, want %q", row[3], "memo with spaces")
+	}
+}
+
 func TestRootCommand_AddRoutesChildOutputToStderr(t *testing.T) {
 	t.Parallel()
 
