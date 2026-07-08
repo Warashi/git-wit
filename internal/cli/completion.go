@@ -17,12 +17,12 @@ func completeManagedIDs(deps dependencies) cobra.CompletionFunc {
 
 		cwd, err := deps.cwd()
 		if err != nil {
-			return nil, cobra.ShellCompDirectiveNoFileComp
+			return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
 		}
 
 		entries, err := query.List(cmd.Context(), cwd)
 		if err != nil {
-			return nil, cobra.ShellCompDirectiveNoFileComp
+			return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
 		}
 
 		completions := make([]cobra.Completion, 0, len(entries))

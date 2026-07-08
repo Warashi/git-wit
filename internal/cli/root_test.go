@@ -461,8 +461,12 @@ func TestRootCommand_IDArgumentCompletion(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
 	configureWorktreeRoot(t, repoDir)
 
-	detachedID, _ := addWorktree(t, repoDir, "detached memo")
+	detachedID, detachedPath := addWorktree(t, repoDir, "detached memo")
 	branchedID, branchedPath := addWorktree(t, repoDir, "feature memo")
+	if detachedPath == "" || branchedPath == "" {
+		t.Fatalf("addWorktree() returned empty path: detached=%q branched=%q", detachedPath, branchedPath)
+	}
+
 	testutil.RunGit(t, branchedPath, "checkout", "-b", "feature/example")
 
 	for _, subcommand := range []string{"dir", "rm", "merge"} {
@@ -488,8 +492,11 @@ func TestRootCommand_IDArgumentCompletionFiltersByPrefix(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
 	configureWorktreeRoot(t, repoDir)
 
-	matchedID, _ := addWorktree(t, repoDir, "matched memo")
-	otherID, _ := addWorktree(t, repoDir, "other memo")
+	matchedID, matchedPath := addWorktree(t, repoDir, "matched memo")
+	otherID, otherPath := addWorktree(t, repoDir, "other memo")
+	if matchedPath == "" || otherPath == "" {
+		t.Fatalf("addWorktree() returned empty path: matched=%q other=%q", matchedPath, otherPath)
+	}
 
 	output := runCompletion(t, repoDir, "dir", distinctPrefix(matchedID, otherID))
 
@@ -574,6 +581,8 @@ func runCompletion(t *testing.T, repoDir string, subcommand string, toComplete s
 }
 
 func distinctPrefix(first string, second string) string {
+	// Returning "" means there is no prefix that uniquely identifies first
+	// relative to second, so callers should expect the broader completion set.
 	if first == second {
 		return ""
 	}
