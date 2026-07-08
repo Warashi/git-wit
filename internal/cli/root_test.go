@@ -574,21 +574,26 @@ func runCompletion(t *testing.T, repoDir string, subcommand string, toComplete s
 }
 
 func distinctPrefix(first string, second string) string {
-	for i := 1; i <= len(first) && i <= len(second); i++ {
-		if first[:i] != second[:i] {
+	if first == second {
+		return ""
+	}
+
+	maxPrefix := len(first)
+	if len(second) < maxPrefix {
+		maxPrefix = len(second)
+	}
+
+	for i := 1; i <= maxPrefix; i++ {
+		if first[i-1] != second[i-1] {
 			return first[:i]
 		}
 	}
 
-	if len(first) < len(second) && strings.HasPrefix(second, first) {
-		return first
+	if len(first) > maxPrefix {
+		return first[:maxPrefix+1]
 	}
 
-	if len(second) < len(first) && strings.HasPrefix(first, second) {
-		return first[:len(second)+1]
-	}
-
-	return first
+	return ""
 }
 
 func writeFile(t *testing.T, dirPath string, name string, contents string) {
