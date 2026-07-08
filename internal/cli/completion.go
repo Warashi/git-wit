@@ -45,6 +45,8 @@ func managedIDDescription(entry query.Entry) string {
 		parts = append(parts, memo)
 	}
 
+	// Branched worktrees already surface the branch name; detached worktrees use
+	// the short HEAD hash instead so the description stays compact.
 	switch {
 	case entry.Branch != "":
 		parts = append(parts, sanitizeCompletionText(entry.Branch))

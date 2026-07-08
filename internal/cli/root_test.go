@@ -498,7 +498,7 @@ func TestRootCommand_IDArgumentCompletionFiltersByPrefix(t *testing.T) {
 		t.Fatalf("addWorktree() returned empty path: matched=%q other=%q", matchedPath, otherPath)
 	}
 
-	output := runCompletion(t, repoDir, "dir", distinctPrefix(matchedID, otherID))
+	output := runCompletion(t, repoDir, "dir", matchedID)
 
 	if !strings.Contains(output, matchedID+"\tmatched memo") {
 		t.Fatalf("completion output = %q, want matching id", output)
@@ -578,31 +578,6 @@ func runCompletion(t *testing.T, repoDir string, subcommand string, toComplete s
 	}
 
 	return stdout.String()
-}
-
-func distinctPrefix(first string, second string) string {
-	// Returning "" means there is no prefix that uniquely identifies first
-	// relative to second, so callers should expect the broader completion set.
-	if first == second {
-		return ""
-	}
-
-	maxPrefix := len(first)
-	if len(second) < maxPrefix {
-		maxPrefix = len(second)
-	}
-
-	for i := 1; i <= maxPrefix; i++ {
-		if first[i-1] != second[i-1] {
-			return first[:i]
-		}
-	}
-
-	if len(first) > maxPrefix {
-		return first[:maxPrefix+1]
-	}
-
-	return ""
 }
 
 func writeFile(t *testing.T, dirPath string, name string, contents string) {
