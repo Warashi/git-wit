@@ -476,7 +476,7 @@ func TestRootCommand_IDArgumentCompletion(t *testing.T) {
 			t.Fatalf("%s completion output = %q, want branched worktree description", subcommand, output)
 		}
 
-		if !strings.Contains(output, "ShellCompDirectiveNoFileComp") {
+		if !strings.Contains(output, ":36\n") {
 			t.Fatalf("%s completion output = %q, want no-file-completion directive", subcommand, output)
 		}
 	}
@@ -491,7 +491,7 @@ func TestRootCommand_IDArgumentCompletionFiltersByPrefix(t *testing.T) {
 	matchedID, _ := addWorktree(t, repoDir, "matched memo")
 	otherID, _ := addWorktree(t, repoDir, "other memo")
 
-	output := runCompletion(t, repoDir, "dir", matchedID[:8])
+	output := runCompletion(t, repoDir, "dir", distinctPrefix(matchedID, otherID))
 
 	if !strings.Contains(output, matchedID+"\tmatched memo") {
 		t.Fatalf("completion output = %q, want matching id", output)
@@ -571,6 +571,16 @@ func runCompletion(t *testing.T, repoDir string, subcommand string, toComplete s
 	}
 
 	return stdout.String()
+}
+
+func distinctPrefix(first string, second string) string {
+	for i := 1; i <= len(first) && i <= len(second); i++ {
+		if first[:i] != second[:i] {
+			return first[:i]
+		}
+	}
+
+	return first
 }
 
 func writeFile(t *testing.T, dirPath string, name string, contents string) {
