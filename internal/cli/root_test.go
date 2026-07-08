@@ -146,6 +146,14 @@ func TestRootCommand_ListRemoveAndPrune(t *testing.T) {
 
 	worktreeID, _ := addWorktree(t, repoDir, "memo")
 
+	assertListOutput(t, repoDir)
+	removeWorktree(t, repoDir, worktreeID)
+	assertPruneOutput(t, repoDir)
+}
+
+func assertListOutput(t *testing.T, repoDir string) {
+	t.Helper()
+
 	var stdout bytes.Buffer
 
 	var stderr bytes.Buffer
@@ -184,29 +192,39 @@ func TestRootCommand_ListRemoveAndPrune(t *testing.T) {
 	if fields[6] != "-" {
 		t.Fatalf("ls pr field = %q, want %q", fields[6], "-")
 	}
+}
 
-	stdout.Reset()
-	stderr.Reset()
+func removeWorktree(t *testing.T, repoDir, worktreeID string) {
+	t.Helper()
 
-	cmd = newTestRootCommand(repoDir, time.Unix(200, 0))
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(200, 0))
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"rm", worktreeID})
 
-	err = cmd.Execute()
+	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
+}
 
-	stdout.Reset()
-	stderr.Reset()
+func assertPruneOutput(t *testing.T, repoDir string) {
+	t.Helper()
 
-	cmd = newTestRootCommand(repoDir, time.Unix(200, 0))
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(200, 0))
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"prune"})
 
-	err = cmd.Execute()
+	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}

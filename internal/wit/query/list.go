@@ -59,8 +59,10 @@ func List(ctx context.Context, cwd string) ([]Entry, error) {
 // short HEAD commit hash for the worktree at path. Errors are ignored: a
 // worktree that is missing or otherwise unreadable simply reports empty
 // values, since ls is a best-effort, read-only view.
-func worktreeState(ctx context.Context, path string) (branch string, head string) {
+func worktreeState(ctx context.Context, path string) (string, string) {
 	runner := git.NewRunner(path)
+	branch := ""
+	head := ""
 
 	if result, err := runner.Run(ctx, "symbolic-ref", "--short", "-q", "HEAD"); err == nil {
 		branch = result.Stdout

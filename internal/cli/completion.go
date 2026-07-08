@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var completionTextSanitizer = strings.NewReplacer("\t", " ", "\n", " ", "\r", " ")
+const managedIDDescriptionPartsCap = 3
 
 func completeManagedIDs(deps dependencies) cobra.CompletionFunc {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
@@ -39,7 +39,7 @@ func completeManagedIDs(deps dependencies) cobra.CompletionFunc {
 }
 
 func managedIDDescription(entry query.Entry) string {
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, managedIDDescriptionPartsCap)
 
 	if memo := sanitizeCompletionText(entry.Memo); memo != "" {
 		parts = append(parts, memo)
@@ -66,5 +66,5 @@ func managedIDDescription(entry query.Entry) string {
 }
 
 func sanitizeCompletionText(value string) string {
-	return strings.TrimSpace(completionTextSanitizer.Replace(value))
+	return strings.TrimSpace(strings.NewReplacer("\t", " ", "\n", " ", "\r", " ").Replace(value))
 }
