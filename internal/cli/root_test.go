@@ -580,6 +580,14 @@ func distinctPrefix(first string, second string) string {
 		}
 	}
 
+	if len(first) < len(second) && strings.HasPrefix(second, first) {
+		return first
+	}
+
+	if len(second) < len(first) && strings.HasPrefix(first, second) {
+		return first[:len(second)+1]
+	}
+
 	return first
 }
 
