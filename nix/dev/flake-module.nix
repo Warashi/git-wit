@@ -94,11 +94,16 @@
 
       devshells.default = {
         devshell = {
-          packages = with pkgs; [
-            nix-update
+          packages =
+            with pkgs;
+            [
+              nix-update
+              golangci-lint
+              gomod2nix
+            ]
+            ++ lib.optional pkgs.stdenv.isLinux pkgs.gcc;
+          packagesFrom = [
             goEnv
-            golangci-lint
-            gomod2nix
           ];
           startup = {
             pre-commit = {
