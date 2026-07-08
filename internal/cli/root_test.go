@@ -462,6 +462,7 @@ func TestRootCommand_IDArgumentCompletion(t *testing.T) {
 	configureWorktreeRoot(t, repoDir)
 
 	detachedID, detachedPath := addWorktree(t, repoDir, "detached memo")
+
 	branchedID, branchedPath := addWorktree(t, repoDir, "feature memo")
 	if detachedPath == "" || branchedPath == "" {
 		t.Fatalf("addWorktree() returned empty path: detached=%q branched=%q", detachedPath, branchedPath)
@@ -493,6 +494,7 @@ func TestRootCommand_IDArgumentCompletionFiltersByPrefix(t *testing.T) {
 	configureWorktreeRoot(t, repoDir)
 
 	matchedID, matchedPath := addWorktree(t, repoDir, "matched memo")
+
 	otherID, otherPath := addWorktree(t, repoDir, "other memo")
 	if matchedPath == "" || otherPath == "" {
 		t.Fatalf("addWorktree() returned empty path: matched=%q other=%q", matchedPath, otherPath)
