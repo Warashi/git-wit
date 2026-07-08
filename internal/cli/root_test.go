@@ -455,6 +455,53 @@ func TestRootCommand_SystemPruneRequiresYesForNonInteractiveInput(t *testing.T) 
 	}
 }
 
+func TestRootCommand_IDArgumentCompletion(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	detachedID, _ := addWorktree(t, repoDir, "detached memo")
+	branchedID, branchedPath := addWorktree(t, repoDir, "feature memo")
+	testutil.RunGit(t, branchedPath, "checkout", "-b", "feature/example")
+
+	for _, subcommand := range []string{"dir", "rm", "merge"} {
+		output := runCompletion(t, repoDir, subcommand, "")
+
+		if !strings.Contains(output, detachedID+"\tdetached memo · HEAD ") {
+			t.Fatalf("%s completion output = %q, want detached worktree description", subcommand, output)
+		}
+
+		if !strings.Contains(output, branchedID+"\tfeature memo · feature/example") {
+			t.Fatalf("%s completion output = %q, want branched worktree description", subcommand, output)
+		}
+
+		if !strings.Contains(output, "ShellCompDirectiveNoFileComp") {
+			t.Fatalf("%s completion output = %q, want no-file-completion directive", subcommand, output)
+		}
+	}
+}
+
+func TestRootCommand_IDArgumentCompletionFiltersByPrefix(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	matchedID, _ := addWorktree(t, repoDir, "matched memo")
+	otherID, _ := addWorktree(t, repoDir, "other memo")
+
+	output := runCompletion(t, repoDir, "dir", matchedID[:8])
+
+	if !strings.Contains(output, matchedID+"\tmatched memo") {
+		t.Fatalf("completion output = %q, want matching id", output)
+	}
+
+	if strings.Contains(output, otherID+"\tother memo") {
+		t.Fatalf("completion output = %q, got unexpected id", output)
+	}
+}
+
 func newTestRootCommand(repoDir string, now time.Time) *cobra.Command {
 	return cli.NewRootCommandForTest(
 		func() (string, error) {
@@ -504,6 +551,26 @@ func mustMkdir(t *testing.T, dirPath string) {
 	if err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
+}
+
+func runCompletion(t *testing.T, repoDir string, subcommand string, toComplete string) string {
+	t.Helper()
+
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(700, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{cobra.ShellCompRequestCmd, subcommand, toComplete})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v, stderr = %q", err, stderr.String())
+	}
+
+	return stdout.String()
 }
 
 func writeFile(t *testing.T, dirPath string, name string, contents string) {

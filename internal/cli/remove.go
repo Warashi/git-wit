@@ -13,6 +13,7 @@ func newRemoveCommand(deps dependencies) *cobra.Command {
 	cmd.Use = "rm <id>"
 	cmd.Short = "Remove a managed worktree"
 	cmd.Args = cobra.ExactArgs(1)
+	cmd.ValidArgsFunction = completeManagedIDs(deps)
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cwd, err := deps.cwd()
 		if err != nil {
