@@ -13,6 +13,7 @@ func newDirCommand(deps dependencies) *cobra.Command {
 	cmd.Use = "dir <id>"
 	cmd.Short = "Print a managed worktree path"
 	cmd.Args = cobra.ExactArgs(1)
+	cmd.ValidArgsFunction = completeManagedIDs(deps)
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cwd, err := deps.cwd()
 		if err != nil {

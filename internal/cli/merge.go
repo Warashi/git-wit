@@ -13,6 +13,7 @@ func newMergeCommand(deps dependencies) *cobra.Command {
 	cmd.Use = "merge <id>"
 	cmd.Short = "Merge a managed worktree"
 	cmd.Args = cobra.ExactArgs(1)
+	cmd.ValidArgsFunction = completeManagedIDs(deps)
 
 	remove := false
 	cmd.Flags().BoolVar(&remove, "rm", false, "remove the worktree after a successful merge")
