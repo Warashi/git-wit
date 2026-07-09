@@ -25,6 +25,7 @@ func newCommandTree(deps dependencies) []*cobra.Command {
 		newListCommand(deps),
 		newIDCommand(deps),
 		newDirCommand(deps),
+		newMemoCommand(deps),
 		newRemoveCommand(deps),
 		newMergeCommand(deps),
 		newPruneCommand(deps),

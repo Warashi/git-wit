@@ -18,7 +18,7 @@ func TestNewRootCommand_HasSubcommands(t *testing.T) {
 
 	cmd := cli.NewRootCommand()
 
-	want := []string{"add", "ls", "id", "dir", "rm", "merge", "prune"}
+	want := []string{"add", "ls", "id", "dir", "memo", "rm", "merge", "prune"}
 	for _, name := range want {
 		got, _, err := cmd.Find([]string{name})
 		if err != nil || got == cmd {
@@ -135,6 +135,50 @@ func TestRootCommand_ID(t *testing.T) {
 
 	if strings.TrimSpace(stdout.String()) != worktreeID {
 		t.Fatalf("id output = %q, want %q", stdout.String(), worktreeID)
+	}
+}
+
+func TestRootCommand_Memo(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	worktreeID, worktreePath := addWorktree(t, repoDir, "memo text")
+
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(150, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"memo", worktreeID})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if strings.TrimSpace(stdout.String()) != "memo text" {
+		t.Fatalf("memo output = %q, want %q", stdout.String(), "memo text")
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+
+	cmd = newTestRootCommand(worktreePath, time.Unix(150, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"memo"})
+
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if strings.TrimSpace(stdout.String()) != "memo text" {
+		t.Fatalf("memo output (no id) = %q, want %q", stdout.String(), "memo text")
 	}
 }
 
@@ -488,7 +532,7 @@ func TestRootCommand_IDArgumentCompletion(t *testing.T) {
 
 	testutil.RunGit(t, branchedPath, "checkout", "-b", "feature/example")
 
-	for _, subcommand := range []string{"dir", "rm", "merge"} {
+	for _, subcommand := range []string{"dir", "memo", "rm", "merge"} {
 		output := runCompletion(t, repoDir, subcommand, "")
 
 		if !strings.Contains(output, detachedID+"\tdetached memo · HEAD ") {
