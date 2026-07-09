@@ -43,7 +43,7 @@
 LoB を保つため、実装は状態遷移を主軸にし、共有境界は最小限に固定する。
 
 * `internal/wit/create`: `git-wit add` の状態遷移。ID 採番、metadata 保存、worktree 作成、初期同期、hook 実行を扱う。
-* `internal/wit/query`: `git-wit ls` / `dir` / `id` の読み取り系。managed worktree の一覧、逆引き、現在地解決を扱う。
+* `internal/wit/query`: `git-wit ls` / `dir` / `id` / `memo` の読み取り系。managed worktree の一覧、逆引き、現在地解決、メモ参照を扱う。
 * `internal/wit/integrate`: `git-wit merge` / `rm` の変更系。merge と削除を 1 つの lifecycle として扱う。
 * `internal/wit/reconcile`: `git-wit prune` / `prune --system` の整合性回復。孤立 ref、孤立 dir、broken symlink の検出と修復を扱う。
 * `internal/wit/catalog`: feature 共有の最小境界。repo discovery、worktree root、UUIDv7、`refs/git-wit/<ID>`、metadata JSON を扱う。
@@ -148,6 +148,10 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
 ### `git-wit dir <id>`
 
 指定されたIDに紐づくワークツリーの絶対パスを標準出力に返すのみ。ユーザーは `cd $(git-wit dir <id>)` のように利用する。
+
+### `git-wit memo [id]`
+
+指定されたIDに紐づく `git-wit add` 登録時のメモを標準出力に返す。`id` を省略した場合は `git-wit id` と同様にカレントディレクトリから managed worktree を解決し、そのメモを返す。
 
 ### `git-wit rm <id>`
 
