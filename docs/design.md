@@ -140,6 +140,11 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
 2. **【付加情報】**: 各 worktree のディレクトリに対して個別に `git symbolic-ref --short -q HEAD`（ブランチ名。detached HEAD の場合は空）と `git rev-parse --short HEAD`（HEADのコミットハッシュ）を実行し、`ID / 作成日時 / パス / メモ / ブランチ / HEAD / PR番号 / 状態` をタブ区切りで出力する。取得できない項目（未検出のブランチや PR、状態）は `-` で表示する。
 3. **【PR番号と状態の解決】**: ブランチが存在する場合に限り、ローカルにインストールされた `gh` CLI（`gh pr view <branch> --json number,state,isDraft,headRefOid`）を worktree のディレクトリで実行し、そのブランチに紐づく Pull Request 番号、状態、head commit を解決するベストエフォートの付加情報とする。状態は `Open` / `Draft` / `Merged` / `Closed` のいずれかとし、wit の HEAD がコマンド実行時の cwd の HEAD に含まれる場合は PR の状態より優先して `Merged` とする。`gh` が未インストール、未認証、対象ブランチに PR が無い等の場合でもコマンド全体は失敗させない。
 4. **【状態監視】**: Symlinkを多用している場合、親ディレクトリの削除等による「Symlink切れ（Broken Link）」という隠れ状態のリスクがある。対象ワークツリーの健全性チェックを非同期で行い、破損があれば警告マーク（例: `[!]`）を付与する。
+5. `--json` 指定時は、通常のタブ区切り出力に代えて作成日時、ID の昇順に並んだ JSON 配列をコンパクト形式かつ末尾改行付きで出力する。各要素は `id` (string)、`created_at` (RFC3339Nano string)、`path` (absolute path string)、`memo` (string)、`branch` (string | null)、`head` (string | null)、`pr_number` (number | null)、`state` (`Open` | `Draft` | `Merged` | `Closed` | null)、`integrated` (boolean) を持つ。オブジェクト内のキー順は契約に含めない。
+
+```json
+[{"id":"019cf12a-9c00-7000-8000-000000000000","created_at":"2026-03-13T10:00:00Z","path":"/home/user/worktrees/019cf12a-9c00-7000-8000-000000000000","memo":"fix login","branch":"feature/login","head":"0123abcd","pr_number":42,"state":"Open","integrated":false}]
+```
 
 ### `git-wit id`
 

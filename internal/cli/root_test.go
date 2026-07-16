@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -191,7 +192,9 @@ func TestRootCommand_ListRemoveAndPrune(t *testing.T) {
 	worktreeID, _ := addWorktree(t, repoDir, "memo")
 
 	assertListOutput(t, repoDir)
+	assertListJSONOutput(t, repoDir, worktreeID)
 	removeWorktree(t, repoDir, worktreeID)
+	assertEmptyListJSONOutput(t, repoDir)
 	assertPruneOutput(t, repoDir)
 }
 
@@ -240,6 +243,110 @@ func assertListOutput(t *testing.T, repoDir string) {
 	if fields[7] != "Merged" {
 		t.Fatalf("ls state field = %q, want %q", fields[7], "Merged")
 	}
+}
+
+type listJSONEntry struct {
+	ID         string    `json:"id"`
+	CreatedAt  time.Time `json:"created_at"` //nolint:tagliatelle // Match the public CLI schema under test.
+	Path       string    `json:"path"`
+	Memo       string    `json:"memo"`
+	Branch     *string   `json:"branch"`
+	Head       *string   `json:"head"`
+	PRNumber   *int      `json:"pr_number"` //nolint:tagliatelle // Match the public CLI schema under test.
+	State      *string   `json:"state"`
+	Integrated bool      `json:"integrated"`
+}
+
+func assertListJSONOutput(t *testing.T, repoDir string, worktreeID string) {
+	t.Helper()
+
+	output := runListJSON(t, repoDir)
+	if !strings.HasSuffix(output, "\n") {
+		t.Fatalf("ls --json output = %q, want trailing newline", output)
+	}
+
+	var entries []listJSONEntry
+	if err := json.Unmarshal([]byte(output), &entries); err != nil {
+		t.Fatalf("Unmarshal(ls --json) error = %v", err)
+	}
+
+	if len(entries) != 1 {
+		t.Fatalf("ls --json returned %d entries, want 1", len(entries))
+	}
+
+	assertListJSONMetadata(t, entries[0], worktreeID)
+	assertListJSONState(t, entries[0])
+}
+
+func assertListJSONMetadata(t *testing.T, entry listJSONEntry, worktreeID string) {
+	t.Helper()
+
+	if entry.ID != worktreeID {
+		t.Fatalf("ls --json id = %q, want %q", entry.ID, worktreeID)
+	}
+
+	if !entry.CreatedAt.Equal(time.Unix(100, 0)) {
+		t.Fatalf("ls --json created_at = %q, want %q", entry.CreatedAt, time.Unix(100, 0))
+	}
+
+	if !filepath.IsAbs(entry.Path) {
+		t.Fatalf("ls --json path = %q, want absolute path", entry.Path)
+	}
+
+	if entry.Memo != "memo" {
+		t.Fatalf("ls --json memo = %q, want %q", entry.Memo, "memo")
+	}
+}
+
+func assertListJSONState(t *testing.T, entry listJSONEntry) {
+	t.Helper()
+
+	if entry.Branch != nil {
+		t.Fatalf("ls --json branch = %q, want null", *entry.Branch)
+	}
+
+	if entry.Head == nil || *entry.Head == "" {
+		t.Fatalf("ls --json head = %v, want commit hash", entry.Head)
+	}
+
+	if entry.PRNumber != nil {
+		t.Fatalf("ls --json pr_number = %d, want null", *entry.PRNumber)
+	}
+
+	if entry.State == nil || *entry.State != "Merged" {
+		t.Fatalf("ls --json state = %v, want %q", entry.State, "Merged")
+	}
+
+	if !entry.Integrated {
+		t.Fatal("ls --json integrated = false, want true")
+	}
+}
+
+func assertEmptyListJSONOutput(t *testing.T, repoDir string) {
+	t.Helper()
+
+	if output := runListJSON(t, repoDir); output != "[]\n" {
+		t.Fatalf("empty ls --json output = %q, want %q", output, "[]\n")
+	}
+}
+
+func runListJSON(t *testing.T, repoDir string) string {
+	t.Helper()
+
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(200, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"ls", "--json"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	return stdout.String()
 }
 
 func removeWorktree(t *testing.T, repoDir, worktreeID string) {
