@@ -138,7 +138,7 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
 
 1. `git for-each-ref refs/git-wit/` で一覧を取得し、各BlobからJSONをパースして一覧表示。
 2. **【付加情報】**: 各 worktree のディレクトリに対して個別に `git symbolic-ref --short -q HEAD`（ブランチ名。detached HEAD の場合は空）と `git rev-parse --short HEAD`（HEADのコミットハッシュ）を実行し、`ID / 作成日時 / パス / メモ / ブランチ / HEAD / PR番号 / 状態` をタブ区切りで出力する。取得できない項目（未検出のブランチや PR、状態）は `-` で表示する。
-3. **【PR番号と状態の解決】**: ブランチが存在する場合に限り、ローカルにインストールされた `gh` CLI（`gh pr view <branch> --json number,state,isDraft`）を worktree のディレクトリで実行し、そのブランチに紐づく Pull Request 番号と状態を解決するベストエフォートの付加情報とする。状態は `Open` / `Draft` / `Merged` / `Closed` のいずれかとし、wit の HEAD がコマンド実行時の cwd の HEAD に含まれる場合は PR の状態より優先して `Merged` とする。`gh` が未インストール、未認証、対象ブランチに PR が無い等の場合でもコマンド全体は失敗させない。
+3. **【PR番号と状態の解決】**: ブランチが存在する場合に限り、ローカルにインストールされた `gh` CLI（`gh pr view <branch> --json number,state,isDraft,headRefOid`）を worktree のディレクトリで実行し、そのブランチに紐づく Pull Request 番号、状態、head commit を解決するベストエフォートの付加情報とする。状態は `Open` / `Draft` / `Merged` / `Closed` のいずれかとし、wit の HEAD がコマンド実行時の cwd の HEAD に含まれる場合は PR の状態より優先して `Merged` とする。`gh` が未インストール、未認証、対象ブランチに PR が無い等の場合でもコマンド全体は失敗させない。
 4. **【状態監視】**: Symlinkを多用している場合、親ディレクトリの削除等による「Symlink切れ（Broken Link）」という隠れ状態のリスクがある。対象ワークツリーの健全性チェックを非同期で行い、破損があれば警告マーク（例: `[!]`）を付与する。
 
 ### `git-wit id`
@@ -157,6 +157,16 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
 
 1. `git worktree remove <Dir>/<ID>` を実行。
 2. `git update-ref -d refs/git-wit/<ID>` で参照を削除。
+
+### `git-wit rm --merged [--yes]`
+
+安全に統合済みと判断できる managed worktree を作成日時の古い順（同時刻は ID 順）に一括削除する。ID 指定と `--merged` は排他とし、`--yes` は `--merged` とだけ併用できる。
+
+1. worktree の HEAD がコマンド実行元の HEAD の祖先であるか、関連 PR が `MERGED` かつ worktree の HEAD が PR の `headRefOid` と一致するものを候補とする。実行元自身が managed worktree の場合は候補から除外する。
+2. 候補を `merged\t<ID>\t<path>` で標準出力へ表示する。候補がなければ無出力で成功終了する。
+3. `--yes` がなければ削除前に `[y/N]` で確認する。非対話入力では `--yes` を必須とし、確認を拒否した場合は削除せず成功終了する。
+4. 各候補は削除直前に条件を再評価する。条件から外れた候補や未コミット変更がある候補は削除しない。
+5. 1 件の失敗後も残りを処理する。成功は `removed\t<ID>` を標準出力、失敗は `failed\t<ID>\t<error>` を標準エラーへ出力し、1 件以上失敗した場合は最終的に非ゼロ終了する。
 
 ### `git-wit merge <id> [--rm]`
 
@@ -210,7 +220,7 @@ stateDiagram-v2
         稼働中 --> マージ済 : git-wit merge
         稼働中 --> コンフリクト : git-wit merge --rm\n(競合発生で中断)
         コンフリクト --> マージ済 : 手動解決 & commit
-        マージ済 --> 存在しない : git-wit rm
+        マージ済 --> 存在しない : git-wit rm\nまたは git-wit rm --merged
     }
     
     state アノマリー（不整合状態） {
