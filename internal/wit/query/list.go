@@ -44,25 +44,58 @@ func List(ctx context.Context, cwd string) ([]Entry, error) {
 
 	entries := make([]Entry, 0, len(items))
 	for _, item := range items {
-		path := repo.WorktreePath(item.ID)
-		branch, head, headOID := worktreeState(ctx, path)
-		prNumber, prState, prHeadOID := pullRequest(ctx, path, branch)
-		included := headIncluded(ctx, cwd, headOID)
-
-		entries = append(entries, Entry{
-			ID:         item.ID,
-			CreatedAt:  item.CreatedAt,
-			Path:       path,
-			Memo:       item.Memo,
-			Branch:     branch,
-			Head:       head,
-			PRNumber:   prNumber,
-			State:      resolveState(included, prState),
-			Integrated: included || mergedPullRequestHead(prState, headOID, prHeadOID),
-		})
+		entries = append(entries, buildEntry(ctx, cwd, repo, item))
 	}
 
 	return entries, nil
+}
+
+// Get returns the current read model for one managed worktree.
+func Get(ctx context.Context, cwd string, worktreeID string) (Entry, error) {
+	err := catalog.ValidateID(worktreeID)
+	if err != nil {
+		return Entry{}, fmt.Errorf("validate id: %w", err)
+	}
+
+	repo, err := catalog.Open(ctx, cwd)
+	if err != nil {
+		return Entry{}, fmt.Errorf("discover repository: %w", err)
+	}
+
+	exists, err := repo.Exists(ctx, worktreeID)
+	if err != nil {
+		return Entry{}, fmt.Errorf("check metadata ref: %w", err)
+	}
+
+	if !exists {
+		return Entry{}, fmt.Errorf("%w: %s", errUnknownWorktreeID, worktreeID)
+	}
+
+	item, err := repo.Load(ctx, worktreeID)
+	if err != nil {
+		return Entry{}, fmt.Errorf("load metadata: %w", err)
+	}
+
+	return buildEntry(ctx, cwd, repo, item), nil
+}
+
+func buildEntry(ctx context.Context, cwd string, repo catalog.Repository, item catalog.Record) Entry {
+	path := repo.WorktreePath(item.ID)
+	branch, head, headOID := worktreeState(ctx, path)
+	prNumber, prState, prHeadOID := pullRequest(ctx, path, branch)
+	included := headIncluded(ctx, cwd, headOID)
+
+	return Entry{
+		ID:         item.ID,
+		CreatedAt:  item.CreatedAt,
+		Path:       path,
+		Memo:       item.Memo,
+		Branch:     branch,
+		Head:       head,
+		PRNumber:   prNumber,
+		State:      resolveState(included, prState),
+		Integrated: included || mergedPullRequestHead(prState, headOID, prHeadOID),
+	}
 }
 
 // worktreeState reports the current branch (empty when detached) and the short
