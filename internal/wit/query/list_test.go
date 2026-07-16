@@ -2,9 +2,11 @@ package query_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,6 +59,10 @@ func TestListReportsDetachedHeadWorktree(t *testing.T) {
 	if entry.State != mergedState {
 		t.Fatalf("entry.State = %q, want %q", entry.State, mergedState)
 	}
+
+	if !entry.Integrated {
+		t.Fatal("entry.Integrated = false, want true")
+	}
 }
 
 func TestListReportsCheckedOutBranch(t *testing.T) {
@@ -105,37 +111,33 @@ func TestListReportsPullRequestStateUntilHeadIsIncluded(t *testing.T) {
 
 	testutil.RunGit(t, created.Path, "checkout", "-b", "feature/state")
 	testutil.RunGit(t, created.Path, "commit", "--allow-empty", "-m", "feature")
+	headOID := strings.TrimSpace(string(testutil.RunGit(t, created.Path, "rev-parse", "HEAD")))
+	mismatchedOID := strings.Repeat("0", 40)
 
 	binDir := t.TempDir()
 	ghPath := filepath.Join(binDir, "gh")
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	tests := []struct {
-		name   string
-		output string
-		want   string
-	}{
-		{name: "open", output: `{"number":42,"state":"OPEN","isDraft":false}`, want: "Open"},
-		{name: "draft", output: `{"number":42,"state":"OPEN","isDraft":true}`, want: "Draft"},
-		{name: "merged", output: `{"number":42,"state":"MERGED","isDraft":false}`, want: "Merged"},
-		{name: "closed", output: `{"number":42,"state":"CLOSED","isDraft":false}`, want: "Closed"},
+	tests := []pullRequestStateTest{
+		{name: "open", output: `{"number":42,"state":"OPEN","isDraft":false}`, want: "Open", wantIntegrated: false},
+		{name: "draft", output: `{"number":42,"state":"OPEN","isDraft":true}`, want: "Draft", wantIntegrated: false},
+		{
+			name:           "merged at local head",
+			output:         fmt.Sprintf(`{"number":42,"state":"MERGED","isDraft":false,"headRefOid":%q}`, headOID),
+			want:           "Merged",
+			wantIntegrated: true,
+		},
+		{
+			name:           "merged before local head",
+			output:         fmt.Sprintf(`{"number":42,"state":"MERGED","isDraft":false,"headRefOid":%q}`, mismatchedOID),
+			want:           "Merged",
+			wantIntegrated: false,
+		},
+		{name: "closed", output: `{"number":42,"state":"CLOSED","isDraft":false}`, want: "Closed", wantIntegrated: false},
 	}
 
 	for _, test := range tests {
-		writeFakeGH(t, ghPath, test.output)
-
-		entries, err := query.List(context.Background(), repoDir)
-		if err != nil {
-			t.Fatalf("%s: List() error = %v", test.name, err)
-		}
-
-		if got := entries[0].PRNumber; got != "42" {
-			t.Fatalf("%s: entry.PRNumber = %q, want %q", test.name, got, "42")
-		}
-
-		if got := entries[0].State; got != test.want {
-			t.Fatalf("%s: entry.State = %q, want %q", test.name, got, test.want)
-		}
+		assertPullRequestState(t, repoDir, ghPath, test)
 	}
 
 	writeFakeGH(t, ghPath, `{"number":42,"state":"CLOSED","isDraft":false}`)
@@ -148,6 +150,45 @@ func TestListReportsPullRequestStateUntilHeadIsIncluded(t *testing.T) {
 
 	if got := entries[0].State; got != mergedState {
 		t.Fatalf("entry.State after merge = %q, want %q", got, mergedState)
+	}
+
+	if !entries[0].Integrated {
+		t.Fatal("entry.Integrated after merge = false, want true")
+	}
+}
+
+type pullRequestStateTest struct {
+	name           string
+	output         string
+	want           string
+	wantIntegrated bool
+}
+
+func assertPullRequestState(t *testing.T, repoDir string, ghPath string, test pullRequestStateTest) {
+	t.Helper()
+
+	writeFakeGH(t, ghPath, test.output)
+
+	entries, err := query.List(context.Background(), repoDir)
+	if err != nil {
+		t.Fatalf("%s: List() error = %v", test.name, err)
+	}
+
+	if got := entries[0].PRNumber; got != "42" {
+		t.Fatalf("%s: entry.PRNumber = %q, want %q", test.name, got, "42")
+	}
+
+	if got := entries[0].State; got != test.want {
+		t.Fatalf("%s: entry.State = %q, want %q", test.name, got, test.want)
+	}
+
+	if got := entries[0].Integrated; got != test.wantIntegrated {
+		t.Fatalf(
+			"%s: entry.Integrated = %t, want %t",
+			test.name,
+			got,
+			test.wantIntegrated,
+		)
 	}
 }
 

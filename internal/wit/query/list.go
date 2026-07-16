@@ -12,18 +12,22 @@ import (
 	"github.com/Warashi/git-wit/internal/wit/catalog"
 )
 
-const ghExecutable = "gh"
+const (
+	ghExecutable = "gh"
+	mergedState  = "Merged"
+)
 
 // Entry is one row of ls output.
 type Entry struct {
-	ID        string
-	CreatedAt time.Time
-	Path      string
-	Memo      string
-	Branch    string
-	Head      string
-	PRNumber  string
-	State     string
+	ID         string
+	CreatedAt  time.Time
+	Path       string
+	Memo       string
+	Branch     string
+	Head       string
+	PRNumber   string
+	State      string
+	Integrated bool
 }
 
 // List lists managed worktrees.
@@ -41,32 +45,35 @@ func List(ctx context.Context, cwd string) ([]Entry, error) {
 	entries := make([]Entry, 0, len(items))
 	for _, item := range items {
 		path := repo.WorktreePath(item.ID)
-		branch, head := worktreeState(ctx, path)
-		prNumber, prState := pullRequest(ctx, path, branch)
+		branch, head, headOID := worktreeState(ctx, path)
+		prNumber, prState, prHeadOID := pullRequest(ctx, path, branch)
+		included := headIncluded(ctx, cwd, headOID)
 
 		entries = append(entries, Entry{
-			ID:        item.ID,
-			CreatedAt: item.CreatedAt,
-			Path:      path,
-			Memo:      item.Memo,
-			Branch:    branch,
-			Head:      head,
-			PRNumber:  prNumber,
-			State:     resolveState(headIncluded(ctx, cwd, head), prState),
+			ID:         item.ID,
+			CreatedAt:  item.CreatedAt,
+			Path:       path,
+			Memo:       item.Memo,
+			Branch:     branch,
+			Head:       head,
+			PRNumber:   prNumber,
+			State:      resolveState(included, prState),
+			Integrated: included || mergedPullRequestHead(prState, headOID, prHeadOID),
 		})
 	}
 
 	return entries, nil
 }
 
-// worktreeState reports the current branch (empty when detached) and the
-// short HEAD commit hash for the worktree at path. Errors are ignored: a
-// worktree that is missing or otherwise unreadable simply reports empty
-// values, since ls is a best-effort, read-only view.
-func worktreeState(ctx context.Context, path string) (string, string) {
+// worktreeState reports the current branch (empty when detached) and the short
+// and full HEAD commit hashes for the worktree at path. Errors are ignored: a
+// worktree that is missing or otherwise unreadable simply reports empty values,
+// since ls is a best-effort, read-only view.
+func worktreeState(ctx context.Context, path string) (string, string, string) {
 	runner := git.NewRunner(path)
 	branch := ""
 	head := ""
+	headOID := ""
 
 	if result, err := runner.Run(ctx, "symbolic-ref", "--short", "-q", "HEAD"); err == nil {
 		branch = result.Stdout
@@ -76,7 +83,11 @@ func worktreeState(ctx context.Context, path string) (string, string) {
 		head = result.Stdout
 	}
 
-	return branch, head
+	if result, err := runner.Run(ctx, "rev-parse", "HEAD"); err == nil {
+		headOID = result.Stdout
+	}
+
+	return branch, head, headOID
 }
 
 func headIncluded(ctx context.Context, cwd string, head string) bool {
@@ -91,55 +102,68 @@ func headIncluded(ctx context.Context, cwd string, head string) bool {
 
 func resolveState(included bool, prState string) string {
 	if included {
-		return "Merged"
+		return mergedState
 	}
 
 	return prState
 }
 
 type pullRequestView struct {
-	Number  json.Number `json:"number"`
-	State   string      `json:"state"`
-	IsDraft bool        `json:"isDraft"`
+	Number     json.Number `json:"number"`
+	State      string      `json:"state"`
+	IsDraft    bool        `json:"isDraft"`
+	HeadRefOID string      `json:"headRefOid"`
 }
 
 // pullRequest returns the number and state of the pull request associated with
 // branch, resolved via the optional `gh` CLI. It returns empty values
 // when gh is unavailable, the worktree is detached, or no PR is found, so
 // ls remains usable without any GitHub integration configured.
-func pullRequest(ctx context.Context, path string, branch string) (string, string) {
+func pullRequest(ctx context.Context, path string, branch string) (string, string, string) {
 	if branch == "" {
-		return "", ""
+		return "", "", ""
 	}
 
 	// gh interprets a leading "-" as a flag rather than a branch name; git
 	// itself refuses to create such branches, but guard defensively since
 	// branch is passed straight through as a positional argument below.
 	if strings.HasPrefix(branch, "-") {
-		return "", ""
+		return "", "", ""
 	}
 
 	if _, err := exec.LookPath(ghExecutable); err != nil {
-		return "", ""
+		return "", "", ""
 	}
 
 	// #nosec G204 -- gh is invoked directly via exec (no shell), so branch cannot inject
 	// additional shell commands. The only remaining risk is gh mistaking branch for a flag,
 	// which the leading-"-" check above already rules out.
-	cmd := exec.CommandContext(ctx, ghExecutable, "pr", "view", branch, "--json", "number,state,isDraft")
+	cmd := exec.CommandContext(
+		ctx,
+		ghExecutable,
+		"pr",
+		"view",
+		branch,
+		"--json",
+		"number,state,isDraft,headRefOid",
+	)
 	cmd.Dir = path
 
 	output, err := cmd.Output()
 	if err != nil {
-		return "", ""
+		return "", "", ""
 	}
 
 	var view pullRequestView
 	if err := json.Unmarshal(output, &view); err != nil {
-		return "", ""
+		return "", "", ""
 	}
 
-	return view.Number.String(), pullRequestState(view)
+	return view.Number.String(), pullRequestState(view), view.HeadRefOID
+}
+
+func mergedPullRequestHead(prState string, headOID string, prHeadOID string) bool {
+	return prState == mergedState && headOID != "" && headOID == prHeadOID
 }
 
 func pullRequestState(view pullRequestView) string {
@@ -151,7 +175,7 @@ func pullRequestState(view pullRequestView) string {
 	case "OPEN":
 		return "Open"
 	case "MERGED":
-		return "Merged"
+		return mergedState
 	case "CLOSED":
 		return "Closed"
 	default:
