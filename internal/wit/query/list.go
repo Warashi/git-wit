@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -22,6 +23,7 @@ type Entry struct {
 	Branch    string
 	Head      string
 	PRNumber  string
+	State     string
 }
 
 // List lists managed worktrees.
@@ -40,6 +42,7 @@ func List(ctx context.Context, cwd string) ([]Entry, error) {
 	for _, item := range items {
 		path := repo.WorktreePath(item.ID)
 		branch, head := worktreeState(ctx, path)
+		prNumber, prState := pullRequest(ctx, path, branch)
 
 		entries = append(entries, Entry{
 			ID:        item.ID,
@@ -48,7 +51,8 @@ func List(ctx context.Context, cwd string) ([]Entry, error) {
 			Memo:      item.Memo,
 			Branch:    branch,
 			Head:      head,
-			PRNumber:  pullRequestNumber(ctx, path, branch),
+			PRNumber:  prNumber,
+			State:     resolveState(headIncluded(ctx, cwd, head), prState),
 		})
 	}
 
@@ -75,36 +79,82 @@ func worktreeState(ctx context.Context, path string) (string, string) {
 	return branch, head
 }
 
-// pullRequestNumber returns the number of the pull request associated with
-// branch, resolved via the optional `gh` CLI. It returns an empty string
+func headIncluded(ctx context.Context, cwd string, head string) bool {
+	if head == "" {
+		return false
+	}
+
+	_, err := git.NewRunner(cwd).Run(ctx, "merge-base", "--is-ancestor", head, "HEAD")
+
+	return err == nil
+}
+
+func resolveState(included bool, prState string) string {
+	if included {
+		return "Merged"
+	}
+
+	return prState
+}
+
+type pullRequestView struct {
+	Number  json.Number `json:"number"`
+	State   string      `json:"state"`
+	IsDraft bool        `json:"isDraft"`
+}
+
+// pullRequest returns the number and state of the pull request associated with
+// branch, resolved via the optional `gh` CLI. It returns empty values
 // when gh is unavailable, the worktree is detached, or no PR is found, so
 // ls remains usable without any GitHub integration configured.
-func pullRequestNumber(ctx context.Context, path string, branch string) string {
+func pullRequest(ctx context.Context, path string, branch string) (string, string) {
 	if branch == "" {
-		return ""
+		return "", ""
 	}
 
 	// gh interprets a leading "-" as a flag rather than a branch name; git
 	// itself refuses to create such branches, but guard defensively since
 	// branch is passed straight through as a positional argument below.
 	if strings.HasPrefix(branch, "-") {
-		return ""
+		return "", ""
 	}
 
 	if _, err := exec.LookPath(ghExecutable); err != nil {
-		return ""
+		return "", ""
 	}
 
 	// #nosec G204 -- gh is invoked directly via exec (no shell), so branch cannot inject
 	// additional shell commands. The only remaining risk is gh mistaking branch for a flag,
 	// which the leading-"-" check above already rules out.
-	cmd := exec.CommandContext(ctx, ghExecutable, "pr", "view", branch, "--json", "number", "--jq", ".number")
+	cmd := exec.CommandContext(ctx, ghExecutable, "pr", "view", branch, "--json", "number,state,isDraft")
 	cmd.Dir = path
 
 	output, err := cmd.Output()
 	if err != nil {
-		return ""
+		return "", ""
 	}
 
-	return strings.TrimSpace(string(output))
+	var view pullRequestView
+	if err := json.Unmarshal(output, &view); err != nil {
+		return "", ""
+	}
+
+	return view.Number.String(), pullRequestState(view)
+}
+
+func pullRequestState(view pullRequestView) string {
+	if view.IsDraft {
+		return "Draft"
+	}
+
+	switch view.State {
+	case "OPEN":
+		return "Open"
+	case "MERGED":
+		return "Merged"
+	case "CLOSED":
+		return "Closed"
+	default:
+		return ""
+	}
 }

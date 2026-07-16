@@ -137,8 +137,8 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
 ### `git-wit ls`
 
 1. `git for-each-ref refs/git-wit/` で一覧を取得し、各BlobからJSONをパースして一覧表示。
-2. **【付加情報】**: 各 worktree のディレクトリに対して個別に `git symbolic-ref --short -q HEAD`（ブランチ名。detached HEAD の場合は空）と `git rev-parse --short HEAD`（HEADのコミットハッシュ）を実行し、`ID / 作成日時 / パス / メモ / ブランチ / HEAD / PR番号` をタブ区切りで出力する。取得できない項目（未検出のブランチや PR）は `-` で表示する。
-3. **【PR番号の解決】**: ブランチが存在する場合に限り、ローカルにインストールされた `gh` CLI（`gh pr view <branch> --json number --jq .number`）を worktree のディレクトリで実行し、そのブランチに紐づく Pull Request 番号を解決するベストエフォートの付加情報とする。`gh` が未インストール、未認証、対象ブランチに PR が無い等の場合は空欄（`-`）とし、コマンド全体は失敗させない。
+2. **【付加情報】**: 各 worktree のディレクトリに対して個別に `git symbolic-ref --short -q HEAD`（ブランチ名。detached HEAD の場合は空）と `git rev-parse --short HEAD`（HEADのコミットハッシュ）を実行し、`ID / 作成日時 / パス / メモ / ブランチ / HEAD / PR番号 / 状態` をタブ区切りで出力する。取得できない項目（未検出のブランチや PR、状態）は `-` で表示する。
+3. **【PR番号と状態の解決】**: ブランチが存在する場合に限り、ローカルにインストールされた `gh` CLI（`gh pr view <branch> --json number,state,isDraft`）を worktree のディレクトリで実行し、そのブランチに紐づく Pull Request 番号と状態を解決するベストエフォートの付加情報とする。状態は `Open` / `Draft` / `Merged` / `Closed` のいずれかとし、wit の HEAD がコマンド実行時の cwd の HEAD に含まれる場合は PR の状態より優先して `Merged` とする。`gh` が未インストール、未認証、対象ブランチに PR が無い等の場合でもコマンド全体は失敗させない。
 4. **【状態監視】**: Symlinkを多用している場合、親ディレクトリの削除等による「Symlink切れ（Broken Link）」という隠れ状態のリスクがある。対象ワークツリーの健全性チェックを非同期で行い、破損があれば警告マーク（例: `[!]`）を付与する。
 
 ### `git-wit id`

@@ -215,8 +215,8 @@ func assertListOutput(t *testing.T, repoDir string) {
 	line := strings.TrimSuffix(stdout.String(), "\n")
 
 	fields := strings.Split(line, "\t")
-	if len(fields) != 7 {
-		t.Fatalf("ls output = %q, want 7 tab-separated fields", stdout.String())
+	if len(fields) != 8 {
+		t.Fatalf("ls output = %q, want 8 tab-separated fields", stdout.String())
 	}
 
 	if fields[3] != "memo" {
@@ -235,6 +235,10 @@ func assertListOutput(t *testing.T, repoDir string) {
 
 	if fields[6] != "-" {
 		t.Fatalf("ls pr field = %q, want %q", fields[6], "-")
+	}
+
+	if fields[7] != "Merged" {
+		t.Fatalf("ls state field = %q, want %q", fields[7], "Merged")
 	}
 }
 

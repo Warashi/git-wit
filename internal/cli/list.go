@@ -28,7 +28,7 @@ func newListCommand(deps dependencies) *cobra.Command {
 		for _, entry := range entries {
 			_, err = fmt.Fprintf(
 				cmd.OutOrStdout(),
-				"%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 				entry.ID,
 				entry.CreatedAt.Format(time.RFC3339),
 				entry.Path,
@@ -36,6 +36,7 @@ func newListCommand(deps dependencies) *cobra.Command {
 				displayOrDash(entry.Branch),
 				displayOrDash(entry.Head),
 				prDisplay(entry.PRNumber),
+				displayOrDash(entry.State),
 			)
 			if err != nil {
 				return fmt.Errorf("write output: %w", err)
