@@ -432,12 +432,14 @@ func mergedPullRequestHead(prState string, headOID string, prHeadOID string) boo
 }
 
 func pullRequestState(view pullRequestView) string {
-	if view.IsDraft {
-		return "Draft"
-	}
-
 	switch view.State {
 	case "OPEN":
+		// Draft only qualifies an open pull request; GitHub keeps
+		// isDraft set on PRs that were closed while still drafts.
+		if view.IsDraft {
+			return "Draft"
+		}
+
 		return "Open"
 	case "MERGED":
 		return mergedState

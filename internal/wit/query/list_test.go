@@ -134,6 +134,12 @@ func TestListReportsPullRequestStateUntilHeadIsIncluded(t *testing.T) {
 			wantIntegrated: false,
 		},
 		{name: "closed", output: `{"number":42,"state":"CLOSED","isDraft":false}`, want: "Closed", wantIntegrated: false},
+		{
+			name:           "closed draft stays closed",
+			output:         `{"number":42,"state":"CLOSED","isDraft":true}`,
+			want:           "Closed",
+			wantIntegrated: false,
+		},
 	}
 
 	for _, test := range tests {
