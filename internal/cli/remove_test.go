@@ -14,7 +14,7 @@ import (
 	"github.com/Warashi/git-wit/internal/wit/create"
 )
 
-func TestRootCommandRemoveMergedContinuesAfterFailure(t *testing.T) {
+func TestRootCommandRemoveMergedSkipsDirtyWorktree(t *testing.T) {
 	t.Parallel()
 
 	repoDir := testutil.InitGitRepo(t)
@@ -40,14 +40,17 @@ func TestRootCommandRemoveMergedContinuesAfterFailure(t *testing.T) {
 	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"rm", "--merged", "--yes"})
 
+	// A dirty candidate is deliberately left in place: that is a skip,
+	// not a failure, so the whole run still exits zero.
 	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("Execute() error = nil, want partial failure")
+	if err != nil {
+		t.Fatalf("Execute() error = %v, want success with a skipped candidate", err)
 	}
 
 	wantOutput := strings.Join([]string{
 		"merged\t" + dirty.ID + "\t" + dirty.Path,
 		"merged\t" + clean.ID + "\t" + clean.Path,
+		"skipped\t" + dirty.ID + "\tworktree has uncommitted changes",
 		"removed\t" + clean.ID,
 		"",
 	}, "\n")
@@ -55,8 +58,8 @@ func TestRootCommandRemoveMergedContinuesAfterFailure(t *testing.T) {
 		t.Fatalf("stdout = %q, want %q", stdout.String(), wantOutput)
 	}
 
-	if !strings.Contains(stderr.String(), "failed\t"+dirty.ID+"\t") {
-		t.Fatalf("stderr = %q, want tagged dirty worktree failure", stderr.String())
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 
 	assertManagedMetadata(t, repoDir, dirty.ID, true)

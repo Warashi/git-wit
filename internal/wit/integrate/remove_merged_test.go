@@ -68,11 +68,11 @@ func TestRemoveMergedContinuesAfterDirtyWorktree(t *testing.T) {
 		t.Fatalf("len(RemoveMerged()) = %d, want 2", len(results))
 	}
 
-	if results[0].Candidate.ID != dirty.ID || results[0].Err == nil {
-		t.Fatalf("RemoveMerged()[0] = %#v, want dirty worktree failure", results[0])
+	if results[0].Candidate.ID != dirty.ID || !results[0].Skipped {
+		t.Fatalf("RemoveMerged()[0] = %#v, want dirty worktree skip", results[0])
 	}
 
-	if results[1].Candidate.ID != clean.ID || results[1].Err != nil {
+	if results[1].Candidate.ID != clean.ID || results[1].Err != nil || results[1].Skipped {
 		t.Fatalf("RemoveMerged()[1] = %#v, want clean worktree success", results[1])
 	}
 
@@ -97,8 +97,8 @@ func TestRemoveMergedRevalidatesCandidate(t *testing.T) {
 	testutil.RunGit(t, created.Path, "commit", "--allow-empty", "-m", "post-confirmation change")
 
 	results := integrate.RemoveMerged(context.Background(), repoDir, candidates, nil)
-	if len(results) != 1 || results[0].Err == nil {
-		t.Fatalf("RemoveMerged() = %#v, want one revalidation failure", results)
+	if len(results) != 1 || !results[0].Skipped {
+		t.Fatalf("RemoveMerged() = %#v, want one revalidation skip", results)
 	}
 
 	assertMetadataExists(t, repoDir, created.ID, true)

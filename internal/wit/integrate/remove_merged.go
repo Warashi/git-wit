@@ -7,11 +7,15 @@ import (
 	"io"
 	"path/filepath"
 
+	"github.com/Warashi/git-wit/internal/git"
 	"github.com/Warashi/git-wit/internal/wit/catalog"
 	"github.com/Warashi/git-wit/internal/wit/query"
 )
 
-var errWorktreeNoLongerIntegrated = errors.New("worktree is no longer integrated")
+var (
+	errWorktreeDirty              = errors.New("worktree has uncommitted changes")
+	errWorktreeNoLongerIntegrated = errors.New("worktree is no longer integrated")
+)
 
 // Candidate describes an integrated managed worktree eligible for removal.
 type Candidate struct {
@@ -19,10 +23,13 @@ type Candidate struct {
 	Path string
 }
 
-// RemovalResult reports the outcome of one bulk removal attempt.
+// RemovalResult reports the outcome of one bulk removal attempt. Skipped
+// marks candidates that were deliberately left in place (no longer
+// integrated, or carrying uncommitted changes); they are not failures.
 type RemovalResult struct {
 	Candidate Candidate
 	Err       error
+	Skipped   bool
 }
 
 // MergedCandidates returns safely integrated worktrees, excluding the active
@@ -54,7 +61,8 @@ func MergedCandidates(ctx context.Context, cwd string) ([]Candidate, error) {
 }
 
 // RemoveMerged removes candidates that are still safely integrated, continuing
-// after individual failures.
+// after individual failures. Candidates that dropped out of the merged
+// condition or carry uncommitted changes are skipped, not failed.
 func RemoveMerged(
 	ctx context.Context,
 	cwd string,
@@ -65,6 +73,8 @@ func RemoveMerged(
 
 	for _, candidate := range candidates {
 		err := validateMergedCandidate(ctx, cwd, candidate)
+		skipped := errors.Is(err, errWorktreeNoLongerIntegrated) || errors.Is(err, errWorktreeDirty)
+
 		if err == nil {
 			err = Remove(ctx, cwd, candidate.ID, false, nil, stderr)
 		}
@@ -72,6 +82,7 @@ func RemoveMerged(
 		results = append(results, RemovalResult{
 			Candidate: candidate,
 			Err:       err,
+			Skipped:   skipped,
 		})
 	}
 
@@ -95,6 +106,15 @@ func validateMergedCandidate(ctx context.Context, cwd string, candidate Candidat
 
 	if samePath(entry.Path, repo.Root()) {
 		return errWorktreeNoLongerIntegrated
+	}
+
+	status, err := git.NewRunner(candidate.Path).Run(ctx, "status", "--porcelain")
+	if err != nil {
+		return fmt.Errorf("check worktree status: %w", err)
+	}
+
+	if status.Stdout != "" {
+		return errWorktreeDirty
 	}
 
 	return nil

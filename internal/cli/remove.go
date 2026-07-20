@@ -131,6 +131,22 @@ func writeMergedRemovalResults(cmd *cobra.Command, results []integrate.RemovalRe
 			continue
 		}
 
+		// Skipped candidates were deliberately left in place; report them
+		// on stdout and keep the exit code clean.
+		if result.Skipped {
+			_, err := fmt.Fprintf(
+				cmd.OutOrStdout(),
+				"skipped\t%s\t%s\n",
+				result.Candidate.ID,
+				singleLineError(result.Err),
+			)
+			if err != nil {
+				return fmt.Errorf("write skipped result: %w", err)
+			}
+
+			continue
+		}
+
 		_, err := fmt.Fprintf(
 			cmd.ErrOrStderr(),
 			"failed\t%s\t%s\n",
