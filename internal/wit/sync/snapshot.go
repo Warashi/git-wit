@@ -291,6 +291,13 @@ func (c copier) copyPath(srcPath string, destPath string) error {
 		return c.copyDir(srcPath, destPath, info.Mode())
 	}
 
+	// FIFOs, sockets, and devices cannot be copied as content; opening a
+	// FIFO for reading would even block until a writer appears, hanging
+	// the whole add.
+	if !info.Mode().IsRegular() {
+		return nil
+	}
+
 	return c.copyFile(srcPath, destPath, info.Mode())
 }
 
