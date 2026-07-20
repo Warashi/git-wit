@@ -54,6 +54,39 @@ func TestStoreLoadListDeleteExists(t *testing.T) {
 	assertExists(t, repo, first.ID, false)
 }
 
+func TestOpenRejectsRelativeWorktreeRoot(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	testutil.RunGit(t, repoDir, "config", "wit.worktree.root", "./relative-root")
+
+	_, err := catalog.Open(context.Background(), repoDir)
+	if err == nil {
+		t.Fatal("Open() error = nil, want relative-root rejection")
+	}
+
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("Open() error = %v, want mention of absolute path", err)
+	}
+}
+
+func TestOpenIgnoresRelativeXDGDataHome(t *testing.T) {
+	repoDir := testutil.InitGitRepo(t)
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("XDG_DATA_HOME", "relative/data-home")
+
+	repo, err := catalog.Open(context.Background(), repoDir)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+
+	wantRoot := filepath.Join(homeDir, ".local", "share", "git-wit", "worktrees")
+	if repo.WorktreeRoot() != wantRoot {
+		t.Fatalf("WorktreeRoot() = %q, want %q", repo.WorktreeRoot(), wantRoot)
+	}
+}
+
 func TestListSkipsCorruptEntries(t *testing.T) {
 	t.Parallel()
 

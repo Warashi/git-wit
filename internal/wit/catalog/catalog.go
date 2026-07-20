@@ -25,11 +25,12 @@ const (
 )
 
 var (
-	errEmptyObjectID      = errors.New("empty object id")
-	errEmptyWorktreeRoot  = errors.New("empty worktree root")
-	errInvalidUUIDVersion = errors.New("invalid uuid version")
-	errNonCanonicalUUIDv7 = errors.New("non-canonical uuidv7")
-	errNotManagedWorktree = errors.New("not in a managed worktree")
+	errEmptyObjectID        = errors.New("empty object id")
+	errEmptyWorktreeRoot    = errors.New("empty worktree root")
+	errInvalidUUIDVersion   = errors.New("invalid uuid version")
+	errNonCanonicalUUIDv7   = errors.New("non-canonical uuidv7")
+	errNotManagedWorktree   = errors.New("not in a managed worktree")
+	errRelativeWorktreeRoot = errors.New("wit.worktree.root must be an absolute path")
 )
 
 // Record represents the JSON document stored in git blobs.
@@ -342,17 +343,23 @@ func loadWorktreeRoot(ctx context.Context, runner git.Runner) (string, error) {
 		return "", fmt.Errorf("load wit.worktree.root: %w", errEmptyWorktreeRoot)
 	}
 
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return "", fmt.Errorf("load wit.worktree.root: normalize path: %w", err)
+	// A relative root would resolve against the process working
+	// directory, so the same repository would use a different root per
+	// invocation and prune would treat every worktree as missing.
+	if !filepath.IsAbs(root) {
+		return "", fmt.Errorf("load wit.worktree.root: %w: %s", errRelativeWorktreeRoot, root)
 	}
 
-	return absRoot, nil
+	return filepath.Clean(root), nil
 }
 
 func defaultWorktreeRoot() (string, error) {
 	baseDir := os.Getenv("XDG_DATA_HOME")
-	if baseDir == "" {
+
+	// The XDG base directory spec requires ignoring relative paths, and
+	// honoring one here would inherit the same cwd-dependence rejected
+	// for wit.worktree.root above.
+	if !filepath.IsAbs(baseDir) {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("resolve home dir: %w", err)
