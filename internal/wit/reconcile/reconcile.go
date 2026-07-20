@@ -216,24 +216,21 @@ func isWorktreeOf(ctx context.Context, worktreePath string, expectedGitCommonDir
 func findBrokenSymlinks(root string) ([]string, error) {
 	broken := []string{}
 
-	err := filepath.WalkDir(root, func(currentPath string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(root, func(currentPath string, entry fs.DirEntry, err error) error {
+		// Unreadable entries (e.g. permission-restricted subdirectories)
+		// must not abort the whole scan: the symlink report is advisory
+		// and prune has other work to finish.
 		if err != nil {
-			return err
+			return nil //nolint:nilerr // Skipping unreadable entries is the tolerant behavior wanted here.
 		}
 
-		if d.Type()&os.ModeSymlink == 0 {
+		if entry.Type()&os.ModeSymlink == 0 {
 			return nil
 		}
 
 		_, statErr := os.Stat(currentPath)
 		if os.IsNotExist(statErr) {
 			broken = append(broken, currentPath)
-
-			return nil
-		}
-
-		if statErr != nil {
-			return fmt.Errorf("stat symlink target: %w", statErr)
 		}
 
 		return nil
@@ -248,6 +245,13 @@ func findBrokenSymlinks(root string) ([]string, error) {
 func resolveWorktreeOwner(ctx context.Context, worktreePath string) error {
 	result, err := git.NewRunner(worktreePath).Run(ctx, "rev-parse", "--show-toplevel")
 	if err != nil {
+		// A cancelled context fails every probe the same way; classifying
+		// that as "orphan" would queue perfectly healthy worktrees for
+		// deletion.
+		if ctx.Err() != nil {
+			return fmt.Errorf("resolve worktree owner: %w", ctx.Err())
+		}
+
 		return errWorktreeOwnerUnknown
 	}
 
