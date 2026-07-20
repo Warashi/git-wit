@@ -73,10 +73,13 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
   "id": "0195e4d1-3d44-7a52-8e18-5f7b3c3d9a01",
   "created_at": "2026-03-13T10:00:00Z",
   "memo": "WIP: ログイン画面のバリデーション修正",
-  "version": "1.0"
+  "base": "94b11ff0d9251b3f0f2b9723d072a34f13c92f11",
+  "version": "1.1"
 }
 
 ```
+
+`base` は worktree 作成時点の HEAD コミット(フル OID)である。読み取り系はこれを「HEAD が base から進んでいるか」の判定に使い、未着手の worktree と統合済みの worktree を区別する。`base` を持たない旧レコード(`1.0`)は従来どおり ancestor 判定のみで扱う。
 
 ## 5. スナップショットと状態同期 (Snapshot & State Synchronization)
 
@@ -128,7 +131,7 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
 ### `git-wit add <memo>`
 
 1. 時刻ソート可能なID（UUIDv7）を採番。
-2. JSONメタデータを構築し、`git hash-object -w` でBlobとして保存。`git update-ref refs/git-wit/<ID> <BlobHash>` で参照を作成。
+2. JSONメタデータ（作成時の HEAD を `base` として含む）を構築し、`git hash-object -w` でBlobとして保存。`git update-ref refs/git-wit/<ID> <BlobHash>` で参照を作成。
 3. `git worktree add -d <Dir>/<ID>` で detached HEAD ワークツリーを作成。
 4. **【同期フェーズ】**: 親リポジトリの `ignored` および `untracked` ファイルをリストアップし、上記「5.2」の評価ロジックに従って `copy` または `symlink` を適用する。
 5. `[wit "add"] hook` を設定順に shell command string として実行し、各コマンドの `cwd` は新規 worktree とする。最初の失敗で中断し、既存の worktree や metadata は巻き戻さない。
@@ -138,9 +141,9 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
 
 1. `git for-each-ref refs/git-wit/` で一覧を取得し、各BlobからJSONをパースして一覧表示。
 2. **【付加情報】**: 各 worktree のディレクトリに対して個別に `git symbolic-ref --short -q HEAD`（ブランチ名。detached HEAD の場合は空）と `git rev-parse --short HEAD`（HEADのコミットハッシュ）を実行し、`ID / 作成日時 / パス / メモ / ブランチ / HEAD` をタブ区切りで出力する。取得できない項目（未検出のブランチ）は `-` で表示する。この解決はいずれもローカルの git 呼び出しのみで完結し、GitHub への問い合わせは行わない。`--full` フラグを指定した場合のみ `PR番号 / 状態` の2列が追加され、8列のタブ区切り出力になる。
-3. **【PR番号と状態の解決（`--full` 指定時のみ）】**: `--full` を指定した場合に限り、ローカルにインストールされた `gh` CLI で Pull Request 情報を解決する。まず対象 worktree 群のブランチ名をまとめて `gh pr list --state all --json number,headRefName,state,isDraft,headRefOid --limit <N>`（`N` はブランチ数に応じて動的に決定するウィンドウ幅）で一括取得し、`headRefName` でブランチと突き合わせる。この取得ウィンドウに含まれず見つからなかったブランチのみ、個別に `gh pr view <branch> --json number,state,isDraft,headRefOid` を並列にフォールバック実行する。一括取得コマンド自体が失敗した場合（ネットワーク断、レート制限等）は個別フォールバックを行わず、そのセッションでは全 worktree の PR 情報を未解決（空値）として扱う。状態は `Open` / `Draft` / `Merged` / `Closed` のいずれかとし、wit の HEAD がコマンド実行時の cwd の HEAD に含まれる場合は PR の状態より優先して `Merged` とする。`gh` が未インストール、未認証、対象ブランチに PR が無い等の場合でもコマンド全体は失敗させない。`--full` を指定しない場合、この解決は一切行われない。
+3. **【PR番号と状態の解決（`--full` 指定時のみ）】**: `--full` を指定した場合に限り、ローカルにインストールされた `gh` CLI で Pull Request 情報を解決する。まず対象 worktree 群のブランチ名をまとめて `gh pr list --state all --json number,headRefName,state,isDraft,headRefOid --limit <N>`（`N` はブランチ数に応じて動的に決定するウィンドウ幅）で一括取得し、`headRefName` でブランチと突き合わせる。この取得ウィンドウに含まれず見つからなかったブランチのみ、個別に `gh pr view <branch> --json number,state,isDraft,headRefOid` を並列にフォールバック実行する。一括取得コマンド自体が失敗した場合（ネットワーク断、レート制限等）は個別フォールバックを行わず、そのセッションでは全 worktree の PR 情報を未解決（空値）として扱う。状態は `Open` / `Draft` / `Merged` / `Closed` のいずれかとし、wit の HEAD が作成時の `base` から進んでおり、かつコマンド実行時の cwd の HEAD に含まれる場合は PR の状態より優先して `Merged` とする。`gh` が未インストール、未認証、対象ブランチに PR が無い等の場合でもコマンド全体は失敗させない。`--full` を指定しない場合、この解決は一切行われない。
 4. **【状態監視】**: Symlinkを多用している場合、親ディレクトリの削除等による「Symlink切れ（Broken Link）」という隠れ状態のリスクがある。対象ワークツリーの健全性チェックを非同期で行い、破損があれば警告マーク（例: `[!]`）を付与する。
-5. `--json` 指定時は、通常のタブ区切り出力に代えて作成日時、ID の昇順に並んだ JSON 配列をコンパクト形式かつ末尾改行付きで出力する。各要素は `id` (string)、`created_at` (RFC3339Nano string)、`path` (absolute path string)、`memo` (string)、`branch` (string | null)、`head` (string | null)、`pr_number` (number | null)、`state` (`Open` | `Draft` | `Merged` | `Closed` | null)、`integrated` (boolean) を持つ。`--json` と `--full` は独立したフラグであり、`pr_number` / `state` は `--full` を併用したときのみ解決され、指定しなければ常に `null` になる。`integrated` は `--full` の有無によらず出力されるが、算出方法が異なる: 通常はローカルの ancestor 判定のみで決まり、`--full` 指定時はさらに GitHub 上で squash merge 済みと判定できた場合も `true` になる。オブジェクト内のキー順は契約に含めない。
+5. `--json` 指定時は、通常のタブ区切り出力に代えて作成日時、ID の昇順に並んだ JSON 配列をコンパクト形式かつ末尾改行付きで出力する。各要素は `id` (string)、`created_at` (RFC3339Nano string)、`path` (absolute path string)、`memo` (string)、`branch` (string | null)、`head` (string | null)、`pr_number` (number | null)、`state` (`Open` | `Draft` | `Merged` | `Closed` | null)、`integrated` (boolean) を持つ。`--json` と `--full` は独立したフラグであり、`pr_number` / `state` は `--full` を併用したときのみ解決され、指定しなければ常に `null` になる。`integrated` は `--full` の有無によらず出力されるが、算出方法が異なる: 通常は「HEAD が作成時の `base` から進んでおり、かつ実行元 HEAD の祖先である」というローカル判定のみで決まり、`--full` 指定時はさらに GitHub 上で squash merge 済みと判定できた場合も `true` になる。作成直後で `base` に留まる worktree は統合対象の作業が存在しないため `integrated` にならない。オブジェクト内のキー順は契約に含めない。
 
 ```json
 [{"id":"019cf12a-9c00-7000-8000-000000000000","created_at":"2026-03-13T10:00:00Z","path":"/home/user/worktrees/019cf12a-9c00-7000-8000-000000000000","memo":"fix login","branch":"feature/login","head":"0123abcd","pr_number":42,"state":"Open","integrated":false}]
@@ -169,7 +172,7 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
 
 安全に統合済みと判断できる managed worktree を作成日時の古い順（同時刻は ID 順）に一括削除する。ID 指定と `--merged` は排他とし、`--yes` は `--merged` とだけ併用できる。
 
-1. worktree の HEAD がコマンド実行元の HEAD の祖先であるか、関連 PR が `MERGED` かつ worktree の HEAD が PR の `headRefOid` と一致するものを候補とする。実行元自身が managed worktree の場合は候補から除外する。
+1. worktree の HEAD が作成時の `base` から進んでおり、かつコマンド実行元の HEAD の祖先であるか、関連 PR が `MERGED` かつ worktree の HEAD が PR の `headRefOid` と一致するものを候補とする。`base` に留まる未着手の worktree と、実行元自身の managed worktree は候補から除外する。
 2. 候補を `merged\t<ID>\t<path>` で標準出力へ表示する。候補がなければ無出力で成功終了する。
 3. `--yes` がなければ削除前に `[y/N]` で確認する。非対話入力では `--yes` を必須とし、確認を拒否した場合は削除せず成功終了する。
 4. 各候補は削除直前に条件を再評価する。条件から外れた候補や未コミット変更がある候補は削除しない。

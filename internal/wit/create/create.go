@@ -30,7 +30,12 @@ func Create(
 		return Result{}, fmt.Errorf("discover repository: %w", err)
 	}
 
-	record := catalog.NewRecord(now, memo)
+	baseResult, err := repo.Runner().Run(ctx, "rev-parse", "HEAD")
+	if err != nil {
+		return Result{}, fmt.Errorf("resolve base commit: %w", err)
+	}
+
+	record := catalog.NewRecord(now, memo, baseResult.Stdout)
 
 	err = repo.Store(ctx, record)
 	if err != nil {

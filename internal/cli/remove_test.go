@@ -24,6 +24,9 @@ func TestRootCommandRemoveMergedContinuesAfterFailure(t *testing.T) {
 	clean := createManagedWorktree(t, repoDir, time.Unix(200, 0))
 	unmerged := createManagedWorktree(t, repoDir, time.Unix(300, 0))
 
+	integrateManagedWorktree(t, repoDir, dirty)
+	integrateManagedWorktree(t, repoDir, clean)
+
 	writeFile(t, dirty.Path, "dirty.txt", "dirty\n")
 	testutil.RunGit(t, unmerged.Path, "commit", "--allow-empty", "-m", "unmerged")
 
@@ -67,6 +70,7 @@ func TestRootCommandRemoveMergedCanBeCancelled(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
 	configureWorktreeRoot(t, repoDir)
 	created := createManagedWorktree(t, repoDir, time.Unix(100, 0))
+	integrateManagedWorktree(t, repoDir, created)
 
 	var stdout bytes.Buffer
 
@@ -93,6 +97,7 @@ func TestRootCommandRemoveMergedRequiresYesForNonInteractiveInput(t *testing.T) 
 	repoDir := testutil.InitGitRepo(t)
 	configureWorktreeRoot(t, repoDir)
 	created := createManagedWorktree(t, repoDir, time.Unix(100, 0))
+	integrateManagedWorktree(t, repoDir, created)
 
 	inputPath := filepath.Join(t.TempDir(), "stdin")
 
@@ -138,6 +143,7 @@ func TestRootCommandRemoveMergedExcludesCurrentManagedWorktree(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
 	configureWorktreeRoot(t, repoDir)
 	created := createManagedWorktree(t, repoDir, time.Unix(100, 0))
+	integrateManagedWorktree(t, repoDir, created)
 
 	var stdout bytes.Buffer
 
@@ -201,6 +207,16 @@ func createManagedWorktree(t *testing.T, repoDir string, now time.Time) create.R
 	}
 
 	return result
+}
+
+// integrateManagedWorktree commits work in the worktree and merges it into
+// the repository, making the worktree a safe rm --merged candidate.
+func integrateManagedWorktree(t *testing.T, repoDir string, created create.Result) {
+	t.Helper()
+
+	testutil.RunGit(t, created.Path, "commit", "--allow-empty", "-m", "work")
+	head := strings.TrimSpace(string(testutil.RunGit(t, created.Path, "rev-parse", "HEAD")))
+	testutil.RunGit(t, repoDir, "merge", head)
 }
 
 func assertManagedMetadata(t *testing.T, repoDir string, worktreeID string, want bool) {

@@ -42,8 +42,8 @@ func TestStoreLoadListDeleteExists(t *testing.T) {
 	t.Parallel()
 
 	repo := openRepo(t)
-	first := catalog.NewRecord(time.Unix(100, 0), "first")
-	second := catalog.NewRecord(time.Unix(200, 0), "second")
+	first := catalog.NewRecord(time.Unix(100, 0), "first", "0123456789012345678901234567890123456789")
+	second := catalog.NewRecord(time.Unix(200, 0), "second", "")
 
 	storeRecord(t, repo, second)
 	storeRecord(t, repo, first)
@@ -112,7 +112,7 @@ func TestCurrentIDResolvesSymlinkedWorktreeRoot(t *testing.T) {
 		t.Fatalf("Open() error = %v", err)
 	}
 
-	record := catalog.NewRecord(time.Unix(400, 0), "memo")
+	record := catalog.NewRecord(time.Unix(400, 0), "memo", "")
 	storeRecord(t, repo, record)
 
 	worktreePath := repo.WorktreePath(record.ID)
@@ -143,7 +143,7 @@ func TestListSkipsCorruptEntries(t *testing.T) {
 		t.Fatalf("Open() error = %v", err)
 	}
 
-	good := catalog.NewRecord(time.Unix(100, 0), "good")
+	good := catalog.NewRecord(time.Unix(100, 0), "good", "")
 	storeRecord(t, repo, good)
 
 	// A foreign ref name, a non-JSON blob, and a blob whose id disagrees
@@ -179,7 +179,7 @@ func TestCurrentID(t *testing.T) {
 		t.Fatalf("EnsureWorktreeRoot() error = %v", err)
 	}
 
-	record := catalog.NewRecord(time.Unix(300, 0), "memo")
+	record := catalog.NewRecord(time.Unix(300, 0), "memo", "")
 
 	err = repo.Store(context.Background(), record)
 	if err != nil {

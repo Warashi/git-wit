@@ -266,15 +266,15 @@ func assertFullListOutput(t *testing.T, repoDir string) {
 		t.Fatalf("ls --full output = %q, want 8 tab-separated fields", stdout.String())
 	}
 
-	// No gh binary is available in the test environment, but the worktree's
-	// HEAD is already included in the repo's HEAD, so state resolves to
-	// Merged from local ancestry alone.
+	// No gh binary is available in the test environment, and a freshly
+	// created worktree still sits on its creation base, so neither a PR
+	// nor a state resolves.
 	if fields[6] != "-" {
 		t.Fatalf("ls --full pr field = %q, want %q", fields[6], "-")
 	}
 
-	if fields[7] != "Merged" {
-		t.Fatalf("ls --full state field = %q, want %q", fields[7], "Merged")
+	if fields[7] != "-" {
+		t.Fatalf("ls --full state field = %q, want %q", fields[7], "-")
 	}
 }
 
@@ -353,8 +353,10 @@ func assertListJSONState(t *testing.T, entry listJSONEntry) {
 		t.Fatalf("ls --json state = %q, want null", *entry.State)
 	}
 
-	if !entry.Integrated {
-		t.Fatal("ls --json integrated = false, want true")
+	// A freshly created worktree has not moved off its creation base, so
+	// there is no work to consider integrated yet.
+	if entry.Integrated {
+		t.Fatal("ls --json integrated = true, want false for a fresh worktree")
 	}
 }
 

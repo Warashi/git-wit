@@ -19,7 +19,7 @@ import (
 const (
 	expectedRefRecordFieldCount = 2
 	refPrefix                   = "refs/git-wit/"
-	schemaVersion               = "1.0"
+	schemaVersion               = "1.1"
 	uuidVersion7                = 7
 	worktreeRootPerm            = 0o750
 )
@@ -38,6 +38,7 @@ type Record struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"` //nolint:tagliatelle // External JSON schema is fixed by design.md.
 	Memo      string    `json:"memo"`
+	Base      string    `json:"base"`
 	Version   string    `json:"version"`
 }
 
@@ -58,12 +59,15 @@ func NewID() string {
 	return uuid.Must(uuid.NewV7()).String()
 }
 
-// NewRecord creates a metadata document for a new worktree.
-func NewRecord(now time.Time, memo string) Record {
+// NewRecord creates a metadata document for a new worktree. base is the
+// commit the worktree is created at; read models use it to tell "work was
+// integrated" apart from "no work happened yet".
+func NewRecord(now time.Time, memo string, base string) Record {
 	return Record{
 		ID:        NewID(),
 		CreatedAt: now.UTC(),
 		Memo:      memo,
+		Base:      base,
 		Version:   schemaVersion,
 	}
 }

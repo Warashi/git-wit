@@ -180,9 +180,17 @@ func newEntry(
 ) Entry {
 	prState := pullRequestState(view)
 
+	// A worktree whose HEAD never moved off its creation base has no work
+	// to integrate: without this guard every freshly created worktree is
+	// an ancestor of HEAD and rm --merged would delete it. Records
+	// predating the base field (empty Base) keep the plain ancestor
+	// judgement.
+	progressed := item.Base == "" || (state.headOID != "" && state.headOID != item.Base)
+	locallyIntegrated := included && progressed
+
 	resolvedState := ""
 	if withGitHub {
-		resolvedState = resolveState(included, prState)
+		resolvedState = resolveState(locallyIntegrated, prState)
 	}
 
 	return Entry{
@@ -194,7 +202,7 @@ func newEntry(
 		Head:       state.head,
 		PRNumber:   view.Number.String(),
 		State:      resolvedState,
-		Integrated: included || mergedPullRequestHead(prState, state.headOID, view.HeadRefOID),
+		Integrated: locallyIntegrated || mergedPullRequestHead(prState, state.headOID, view.HeadRefOID),
 	}
 }
 

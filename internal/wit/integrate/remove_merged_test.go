@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,8 +20,12 @@ func TestMergedCandidatesAreSortedAndExcludeCurrentWorktree(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
 	configureWorktreeRoot(t, repoDir)
 
+	// Chain the integrations so each worktree's HEAD is an ancestor of
+	// the other's, keeping both candidates regardless of the cwd.
 	newer := createWorktree(t, repoDir, time.Unix(200, 0))
+	integrateWorktree(t, repoDir, newer)
 	older := createWorktree(t, repoDir, time.Unix(100, 0))
+	integrateWorktree(t, repoDir, older)
 
 	candidates, err := integrate.MergedCandidates(context.Background(), repoDir)
 	if err != nil {
@@ -45,6 +50,8 @@ func TestRemoveMergedContinuesAfterDirtyWorktree(t *testing.T) {
 
 	dirty := createWorktree(t, repoDir, time.Unix(100, 0))
 	clean := createWorktree(t, repoDir, time.Unix(200, 0))
+	integrateWorktree(t, repoDir, dirty)
+	integrateWorktree(t, repoDir, clean)
 
 	err := os.WriteFile(filepath.Join(dirty.Path, "dirty.txt"), []byte("dirty\n"), 0o600)
 	if err != nil {
@@ -80,6 +87,7 @@ func TestRemoveMergedRevalidatesCandidate(t *testing.T) {
 	configureWorktreeRoot(t, repoDir)
 
 	created := createWorktree(t, repoDir, time.Unix(100, 0))
+	integrateWorktree(t, repoDir, created)
 
 	candidates, err := integrate.MergedCandidates(context.Background(), repoDir)
 	if err != nil {
@@ -105,6 +113,16 @@ func createWorktree(t *testing.T, repoDir string, now time.Time) create.Result {
 	}
 
 	return result
+}
+
+// integrateWorktree commits work in the worktree and merges it into the
+// repository so the worktree qualifies as safely integrated.
+func integrateWorktree(t *testing.T, repoDir string, created create.Result) {
+	t.Helper()
+
+	testutil.RunGit(t, created.Path, "commit", "--allow-empty", "-m", "work")
+	head := strings.TrimSpace(string(testutil.RunGit(t, created.Path, "rev-parse", "HEAD")))
+	testutil.RunGit(t, repoDir, "merge", head)
 }
 
 func configureWorktreeRoot(t *testing.T, repoDir string) {

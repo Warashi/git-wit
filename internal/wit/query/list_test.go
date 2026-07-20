@@ -56,12 +56,14 @@ func TestListReportsDetachedHeadWorktree(t *testing.T) {
 		t.Fatalf("entry.PRNumber = %q, want empty", entry.PRNumber)
 	}
 
-	if entry.State != mergedState {
-		t.Fatalf("entry.State = %q, want %q", entry.State, mergedState)
+	// The worktree still sits on its creation base: nothing has been
+	// integrated yet, even though its HEAD is an ancestor of the repo's.
+	if entry.State != "" {
+		t.Fatalf("entry.State = %q, want empty", entry.State)
 	}
 
-	if !entry.Integrated {
-		t.Fatal("entry.Integrated = false, want true")
+	if entry.Integrated {
+		t.Fatal("entry.Integrated = true, want false for a fresh worktree")
 	}
 }
 
@@ -95,8 +97,37 @@ func TestListReportsCheckedOutBranch(t *testing.T) {
 		t.Fatalf("entry.Head = %q, want a short commit hash", entries[0].Head)
 	}
 
+	if got := entries[0].State; got != "" {
+		t.Fatalf("entry.State = %q, want empty (still on the creation base)", got)
+	}
+}
+
+func TestListMarksProgressedWorktreeIntegrated(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	created, err := create.Create(context.Background(), repoDir, time.Unix(250, 0), "memo", nil, nil)
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	testutil.RunGit(t, created.Path, "commit", "--allow-empty", "-m", "work")
+	head := strings.TrimSpace(string(testutil.RunGit(t, created.Path, "rev-parse", "HEAD")))
+	testutil.RunGit(t, repoDir, "merge", head)
+
+	entries, err := query.List(context.Background(), repoDir, true)
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+
 	if got := entries[0].State; got != mergedState {
 		t.Fatalf("entry.State = %q, want %q", got, mergedState)
+	}
+
+	if !entries[0].Integrated {
+		t.Fatal("entry.Integrated = false, want true after merge")
 	}
 }
 
