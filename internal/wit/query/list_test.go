@@ -191,6 +191,43 @@ func TestListFallsBackToIndividualLookupWhenBatchListMisses(t *testing.T) {
 	}
 }
 
+func TestListPrefersNewestPullRequestForReusedBranch(t *testing.T) {
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	created, err := create.Create(context.Background(), repoDir, time.Unix(450, 0), "memo", nil, nil)
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	testutil.RunGit(t, created.Path, "checkout", "-b", "feature/reused")
+	testutil.RunGit(t, created.Path, "commit", "--allow-empty", "-m", "feature")
+
+	binDir := t.TempDir()
+	ghPath := filepath.Join(binDir, "gh")
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	// gh pr list returns newest-first; the reused branch has a current
+	// open PR followed by an older closed one, and the open PR must win.
+	listOutput := `[` +
+		`{"number":20,"headRefName":"feature/reused","state":"OPEN","isDraft":false},` +
+		`{"number":10,"headRefName":"feature/reused","state":"CLOSED","isDraft":false}]`
+	writeFakeGHList(t, ghPath, "0", listOutput, `{}`)
+
+	entries, err := query.List(context.Background(), repoDir, true)
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+
+	if got := entries[0].PRNumber; got != "20" {
+		t.Fatalf("entry.PRNumber = %q, want %q (newest PR)", got, "20")
+	}
+
+	if got := entries[0].State; got != "Open" {
+		t.Fatalf("entry.State = %q, want %q", got, "Open")
+	}
+}
+
 func TestListSkipsFallbackWhenBatchListFails(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
 	configureWorktreeRoot(t, repoDir)

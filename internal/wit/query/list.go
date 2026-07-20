@@ -392,6 +392,13 @@ func listPullRequests(
 
 	result := make(map[string]pullRequestView, len(listed))
 	for _, view := range listed {
+		// gh pr list returns pull requests newest-first; keep the first
+		// match so a branch reused for a new PR is not reported with a
+		// stale, older one.
+		if _, exists := result[view.HeadRefName]; exists {
+			continue
+		}
+
 		result[view.HeadRefName] = pullRequestView{
 			Number:     view.Number,
 			State:      view.State,
