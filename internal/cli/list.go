@@ -24,7 +24,7 @@ func newListCommand(deps dependencies) *cobra.Command {
 			return fmt.Errorf("get cwd: %w", err)
 		}
 
-		entries, err := query.List(cmd.Context(), cwd)
+		entries, err := query.List(cmd.Context(), cwd, true)
 		if err != nil {
 			return fmt.Errorf("run ls: %w", err)
 		}

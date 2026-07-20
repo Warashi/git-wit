@@ -33,7 +33,7 @@ func MergedCandidates(ctx context.Context, cwd string) ([]Candidate, error) {
 		return nil, fmt.Errorf("discover repository: %w", err)
 	}
 
-	entries, err := query.List(ctx, cwd)
+	entries, err := query.List(ctx, cwd, true)
 	if err != nil {
 		return nil, fmt.Errorf("list worktrees: %w", err)
 	}
@@ -79,7 +79,7 @@ func RemoveMerged(
 }
 
 func validateMergedCandidate(ctx context.Context, cwd string, candidate Candidate) error {
-	entry, err := query.Get(ctx, cwd, candidate.ID)
+	entry, err := query.Get(ctx, cwd, candidate.ID, true)
 	if err != nil {
 		return fmt.Errorf("refresh worktree state: %w", err)
 	}

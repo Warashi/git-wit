@@ -20,7 +20,7 @@ func completeManagedIDs(deps dependencies) cobra.CompletionFunc {
 			return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
 		}
 
-		entries, err := query.List(cmd.Context(), cwd)
+		entries, err := query.List(cmd.Context(), cwd, true)
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
 		}

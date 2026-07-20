@@ -30,7 +30,7 @@ func TestListReportsDetachedHeadWorktree(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	entries, err := query.List(context.Background(), repoDir)
+	entries, err := query.List(context.Background(), repoDir, true)
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
@@ -78,7 +78,7 @@ func TestListReportsCheckedOutBranch(t *testing.T) {
 
 	testutil.RunGit(t, created.Path, "checkout", "-b", "feature/example")
 
-	entries, err := query.List(context.Background(), repoDir)
+	entries, err := query.List(context.Background(), repoDir, true)
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
@@ -143,7 +143,7 @@ func TestListReportsPullRequestStateUntilHeadIsIncluded(t *testing.T) {
 	writeFakeGH(t, ghPath, `{"number":42,"state":"CLOSED","isDraft":false}`)
 	testutil.RunGit(t, repoDir, "merge", "--ff-only", "feature/state")
 
-	entries, err := query.List(context.Background(), repoDir)
+	entries, err := query.List(context.Background(), repoDir, true)
 	if err != nil {
 		t.Fatalf("List() after merge error = %v", err)
 	}
@@ -169,7 +169,7 @@ func assertPullRequestState(t *testing.T, repoDir string, ghPath string, test pu
 
 	writeFakeGH(t, ghPath, test.output)
 
-	entries, err := query.List(context.Background(), repoDir)
+	entries, err := query.List(context.Background(), repoDir, true)
 	if err != nil {
 		t.Fatalf("%s: List() error = %v", test.name, err)
 	}

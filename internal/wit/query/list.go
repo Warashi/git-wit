@@ -30,8 +30,11 @@ type Entry struct {
 	Integrated bool
 }
 
-// List lists managed worktrees.
-func List(ctx context.Context, cwd string) ([]Entry, error) {
+// List lists managed worktrees. withGitHub controls whether pull request
+// information is resolved via the optional `gh` CLI; callers that only need
+// local state (e.g. shell completion) should pass false to avoid the
+// associated GitHub API calls.
+func List(ctx context.Context, cwd string, withGitHub bool) ([]Entry, error) {
 	repo, err := catalog.Open(ctx, cwd)
 	if err != nil {
 		return nil, fmt.Errorf("discover repository: %w", err)
@@ -44,14 +47,15 @@ func List(ctx context.Context, cwd string) ([]Entry, error) {
 
 	entries := make([]Entry, 0, len(items))
 	for _, item := range items {
-		entries = append(entries, buildEntry(ctx, cwd, repo, item))
+		entries = append(entries, buildEntry(ctx, cwd, repo, item, withGitHub))
 	}
 
 	return entries, nil
 }
 
-// Get returns the current read model for one managed worktree.
-func Get(ctx context.Context, cwd string, worktreeID string) (Entry, error) {
+// Get returns the current read model for one managed worktree. See List for
+// the meaning of withGitHub.
+func Get(ctx context.Context, cwd string, worktreeID string, withGitHub bool) (Entry, error) {
 	err := catalog.ValidateID(worktreeID)
 	if err != nil {
 		return Entry{}, fmt.Errorf("validate id: %w", err)
@@ -76,13 +80,18 @@ func Get(ctx context.Context, cwd string, worktreeID string) (Entry, error) {
 		return Entry{}, fmt.Errorf("load metadata: %w", err)
 	}
 
-	return buildEntry(ctx, cwd, repo, item), nil
+	return buildEntry(ctx, cwd, repo, item, withGitHub), nil
 }
 
-func buildEntry(ctx context.Context, cwd string, repo catalog.Repository, item catalog.Record) Entry {
+func buildEntry(ctx context.Context, cwd string, repo catalog.Repository, item catalog.Record, withGitHub bool) Entry {
 	path := repo.WorktreePath(item.ID)
 	branch, head, headOID := worktreeState(ctx, path)
-	prNumber, prState, prHeadOID := pullRequest(ctx, path, branch)
+
+	var prNumber, prState, prHeadOID string
+	if withGitHub {
+		prNumber, prState, prHeadOID = pullRequest(ctx, path, branch)
+	}
+
 	included := headIncluded(ctx, cwd, headOID)
 
 	return Entry{
