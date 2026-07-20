@@ -142,7 +142,7 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
 1. `git for-each-ref refs/git-wit/` で一覧を取得し、各BlobからJSONをパースして一覧表示。
 2. **【付加情報】**: 各 worktree のディレクトリに対して個別に `git symbolic-ref --short -q HEAD`（ブランチ名。detached HEAD の場合は空）と `git rev-parse --short HEAD`（HEADのコミットハッシュ）を実行し、`ID / 作成日時 / パス / メモ / ブランチ / HEAD` をタブ区切りで出力する。取得できない項目（未検出のブランチ）は `-` で表示する。メモ内のタブ・改行・CR は列構造を守るため空白に置換する（`--json` は生の値を保持する）。この解決はいずれもローカルの git 呼び出しのみで完結し、GitHub への問い合わせは行わない。`--full` フラグを指定した場合のみ `PR番号 / 状態` の2列が追加され、8列のタブ区切り出力になる。
 3. **【PR番号と状態の解決（`--full` 指定時のみ）】**: `--full` を指定した場合に限り、ローカルにインストールされた `gh` CLI で Pull Request 情報を解決する。まず対象 worktree 群のブランチ名をまとめて `gh pr list --state all --json number,headRefName,state,isDraft,headRefOid --limit <N>`（`N` はブランチ数に応じて動的に決定するウィンドウ幅）で一括取得し、`headRefName` でブランチと突き合わせる。この取得ウィンドウに含まれず見つからなかったブランチのみ、個別に `gh pr view <branch> --json number,state,isDraft,headRefOid` を並列にフォールバック実行する。一括取得コマンド自体が失敗した場合（ネットワーク断、レート制限等）は個別フォールバックを行わず、そのセッションでは全 worktree の PR 情報を未解決（空値）として扱う。状態は `Open` / `Draft` / `Merged` / `Closed` のいずれかとし、wit の HEAD が作成時の `base` から進んでおり、かつコマンド実行時の cwd の HEAD に含まれる場合は PR の状態より優先して `Merged` とする。`gh` が未インストール、未認証、対象ブランチに PR が無い等の場合でもコマンド全体は失敗させない。`--full` を指定しない場合、この解決は一切行われない。
-4. **【状態監視】**: Symlinkを多用している場合、親ディレクトリの削除等による「Symlink切れ（Broken Link）」という隠れ状態のリスクがある。対象ワークツリーの健全性チェックを非同期で行い、破損があれば警告マーク（例: `[!]`）を付与する。
+4. **【状態監視】**: Symlinkを多用している場合、親ディレクトリの削除等による「Symlink切れ（Broken Link）」という隠れ状態のリスクがある。`ls` はパフォーマンス方針（8.2）に従いワークツリー全体の健全性チェックを行わず、破損 Symlink の検知と報告（`broken-symlink\t<path>`）は `git-wit prune` / `git-wit prune --system` の責務とする。
 5. `--json` 指定時は、通常のタブ区切り出力に代えて作成日時、ID の昇順に並んだ JSON 配列をコンパクト形式かつ末尾改行付きで出力する。各要素は `id` (string)、`created_at` (RFC3339Nano string)、`path` (absolute path string)、`memo` (string)、`branch` (string | null)、`head` (string | null)、`pr_number` (number | null)、`state` (`Open` | `Draft` | `Merged` | `Closed` | null)、`integrated` (boolean) を持つ。`--json` と `--full` は独立したフラグであり、`pr_number` / `state` は `--full` を併用したときのみ解決され、指定しなければ常に `null` になる。`integrated` は `--full` の有無によらず出力されるが、算出方法が異なる: 通常は「HEAD が作成時の `base` から進んでおり、かつ実行元 HEAD の祖先である」というローカル判定のみで決まり、`--full` 指定時はさらに GitHub 上で squash merge 済みと判定できた場合も `true` になる。作成直後で `base` に留まる worktree は統合対象の作業が存在しないため `integrated` にならない。オブジェクト内のキー順は契約に含めない。
 
 ```json
@@ -199,7 +199,7 @@ copy 同期を有効にした worktree は、ツール自身が配置した untr
 configured な managed worktree root 全体を走査し、`git rev-parse --show-toplevel` で所有 repo を特定できない worktree directory だけを孤児として扱う。
 
 1. 対象は worktree root 直下の UUIDv7 名ディレクトリのみ。
-2. 所有 repo を特定できた worktree には触れない。`refs/git-wit/<ID>` の有無にも介入しない。
+2. 所有 repo を特定できた worktree には触れない。`refs/git-wit/<ID>` の有無にも介入しない。ただし所有 repo が判明した worktree は破損 Symlink を走査し、`broken-symlink\t<path>` として報告する（報告のみで修復・削除はしない）。
 3. 所有 repo を特定できないディレクトリだけを削除候補として列挙する。
 4. `--yes` なしでは確認プロンプトを出し、非対話入力ではエラーにする。
 5. 実行時はディレクトリのみを削除し、ref は削除しない。
