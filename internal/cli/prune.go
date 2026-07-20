@@ -97,12 +97,20 @@ func runSystemPrune(cmd *cobra.Command, cwd string, yes bool) error {
 		}
 	}
 
-	removedDirs, err := reconcile.RemoveSystemOrphans(result.OrphanDirs)
+	// Report what was actually deleted even when a later removal fails;
+	// otherwise a partial failure hides which directories are already gone.
+	removedDirs, removeErr := reconcile.RemoveSystemOrphans(result.OrphanDirs)
+
+	err = writeRemovedDirs(cmd, removedDirs)
 	if err != nil {
-		return fmt.Errorf("remove system orphan dirs: %w", err)
+		return err
 	}
 
-	return writeRemovedDirs(cmd, removedDirs)
+	if removeErr != nil {
+		return fmt.Errorf("remove system orphan dirs: %w", removeErr)
+	}
+
+	return nil
 }
 
 func writeSystemPruneScan(cmd *cobra.Command, result reconcile.Result) error {
