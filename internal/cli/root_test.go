@@ -192,12 +192,15 @@ func TestRootCommand_ListRemoveAndPrune(t *testing.T) {
 	worktreeID, _ := addWorktree(t, repoDir, "memo")
 
 	assertListOutput(t, repoDir)
+	assertFullListOutput(t, repoDir)
 	assertListJSONOutput(t, repoDir, worktreeID)
 	removeWorktree(t, repoDir, worktreeID)
 	assertEmptyListJSONOutput(t, repoDir)
 	assertPruneOutput(t, repoDir)
 }
 
+// assertListOutput checks the default `ls` output, which never resolves pull
+// request info and so has no PR/state columns.
 func assertListOutput(t *testing.T, repoDir string) {
 	t.Helper()
 
@@ -218,16 +221,16 @@ func assertListOutput(t *testing.T, repoDir string) {
 	line := strings.TrimSuffix(stdout.String(), "\n")
 
 	fields := strings.Split(line, "\t")
-	if len(fields) != 8 {
-		t.Fatalf("ls output = %q, want 8 tab-separated fields", stdout.String())
+	if len(fields) != 6 {
+		t.Fatalf("ls output = %q, want 6 tab-separated fields", stdout.String())
 	}
 
 	if fields[3] != "memo" {
 		t.Fatalf("ls memo field = %q, want %q", fields[3], "memo")
 	}
 
-	// A freshly created worktree is a detached HEAD with no branch and no
-	// pull request, but must report its HEAD commit.
+	// A freshly created worktree is a detached HEAD with no branch, but must
+	// report its HEAD commit.
 	if fields[4] != "-" {
 		t.Fatalf("ls branch field = %q, want %q", fields[4], "-")
 	}
@@ -235,13 +238,43 @@ func assertListOutput(t *testing.T, repoDir string) {
 	if fields[5] == "" || fields[5] == "-" {
 		t.Fatalf("ls head field = %q, want a commit hash", fields[5])
 	}
+}
 
+// assertFullListOutput checks `ls --full`, which adds the PR/state columns
+// back by resolving pull request info via gh.
+func assertFullListOutput(t *testing.T, repoDir string) {
+	t.Helper()
+
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(200, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"ls", "--full"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	line := strings.TrimSuffix(stdout.String(), "\n")
+
+	fields := strings.Split(line, "\t")
+	if len(fields) != 8 {
+		t.Fatalf("ls --full output = %q, want 8 tab-separated fields", stdout.String())
+	}
+
+	// No gh binary is available in the test environment, but the worktree's
+	// HEAD is already included in the repo's HEAD, so state resolves to
+	// Merged from local ancestry alone.
 	if fields[6] != "-" {
-		t.Fatalf("ls pr field = %q, want %q", fields[6], "-")
+		t.Fatalf("ls --full pr field = %q, want %q", fields[6], "-")
 	}
 
 	if fields[7] != "Merged" {
-		t.Fatalf("ls state field = %q, want %q", fields[7], "Merged")
+		t.Fatalf("ls --full state field = %q, want %q", fields[7], "Merged")
 	}
 }
 

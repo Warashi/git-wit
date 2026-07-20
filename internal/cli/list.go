@@ -13,6 +13,8 @@ import (
 func newListCommand(deps dependencies) *cobra.Command {
 	var outputJSON bool
 
+	var full bool
+
 	//nolint:exhaustruct // Cobra commands are configured field-by-field for readability.
 	cmd := &cobra.Command{}
 	cmd.Use = "ls"
@@ -24,7 +26,7 @@ func newListCommand(deps dependencies) *cobra.Command {
 			return fmt.Errorf("get cwd: %w", err)
 		}
 
-		entries, err := query.List(cmd.Context(), cwd, true)
+		entries, err := query.List(cmd.Context(), cwd, full)
 		if err != nil {
 			return fmt.Errorf("run ls: %w", err)
 		}
@@ -39,19 +41,7 @@ func newListCommand(deps dependencies) *cobra.Command {
 		}
 
 		for _, entry := range entries {
-			_, err = fmt.Fprintf(
-				cmd.OutOrStdout(),
-				"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-				entry.ID,
-				entry.CreatedAt.Format(time.RFC3339),
-				entry.Path,
-				entry.Memo,
-				displayOrDash(entry.Branch),
-				displayOrDash(entry.Head),
-				prDisplay(entry.PRNumber),
-				displayOrDash(entry.State),
-			)
-			if err != nil {
+			if err := writeListEntryText(cmd.OutOrStdout(), entry, full); err != nil {
 				return fmt.Errorf("write output: %w", err)
 			}
 		}
@@ -60,8 +50,49 @@ func newListCommand(deps dependencies) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&outputJSON, "json", false, "output managed worktrees as JSON")
+	cmd.Flags().BoolVar(&full, "full", false, "resolve pull request info via gh (slower, requires network)")
 
 	return cmd
+}
+
+// writeListEntryText writes one tab-separated ls row. The PR/state columns
+// are only included in full mode, since they are otherwise never populated.
+func writeListEntryText(writer io.Writer, entry query.Entry, full bool) error {
+	if !full {
+		_, err := fmt.Fprintf(
+			writer,
+			"%s\t%s\t%s\t%s\t%s\t%s\n",
+			entry.ID,
+			entry.CreatedAt.Format(time.RFC3339),
+			entry.Path,
+			entry.Memo,
+			displayOrDash(entry.Branch),
+			displayOrDash(entry.Head),
+		)
+		if err != nil {
+			return fmt.Errorf("write row: %w", err)
+		}
+
+		return nil
+	}
+
+	_, err := fmt.Fprintf(
+		writer,
+		"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		entry.ID,
+		entry.CreatedAt.Format(time.RFC3339),
+		entry.Path,
+		entry.Memo,
+		displayOrDash(entry.Branch),
+		displayOrDash(entry.Head),
+		prDisplay(entry.PRNumber),
+		displayOrDash(entry.State),
+	)
+	if err != nil {
+		return fmt.Errorf("write row: %w", err)
+	}
+
+	return nil
 }
 
 type listJSONEntry struct {
