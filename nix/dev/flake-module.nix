@@ -76,7 +76,12 @@
           hooks = {
             # keep-sorted start block=yes
             golangci-lint.enable = true;
-            gotest.enable = true;
+            gotest = {
+              enable = true;
+              # nixpkgs' default `go` still trails go.mod's `go 1.26.1`, which makes
+              # `go test` try (and, offline, fail) to fetch a newer toolchain.
+              package = pkgs.go_1_26;
+            };
             actionlint.enable = true;
             treefmt.enable = true;
             # keep-sorted end
