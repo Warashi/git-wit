@@ -5,16 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/Warashi/git-wit/internal/git"
 	"github.com/Warashi/git-wit/internal/wit/catalog"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
 	ghExecutable = "gh"
 	mergedState  = "Merged"
+
+	// minListParallelism is a floor on top of GOMAXPROCS: buildEntry's git/gh
+	// subprocess calls are I/O-bound, so constrained environments (e.g. a
+	// single-vCPU CI container) still benefit from more concurrency than CPU
+	// count alone would allow.
+	minListParallelism = 8
 )
 
 // Entry is one row of ls output.
@@ -45,10 +53,21 @@ func List(ctx context.Context, cwd string, withGitHub bool) ([]Entry, error) {
 		return nil, fmt.Errorf("list metadata: %w", err)
 	}
 
-	entries := make([]Entry, 0, len(items))
-	for _, item := range items {
-		entries = append(entries, buildEntry(ctx, cwd, repo, item, withGitHub))
+	entries := make([]Entry, len(items))
+
+	var group errgroup.Group
+
+	group.SetLimit(max(runtime.GOMAXPROCS(0), minListParallelism))
+
+	for i, item := range items {
+		group.Go(func() error {
+			entries[i] = buildEntry(ctx, cwd, repo, item, withGitHub)
+
+			return nil
+		})
 	}
+
+	_ = group.Wait() // buildEntry is best-effort and never returns an error.
 
 	return entries, nil
 }
