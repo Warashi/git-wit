@@ -199,6 +199,43 @@ func TestRootCommand_ListRemoveAndPrune(t *testing.T) {
 	assertPruneOutput(t, repoDir)
 }
 
+func TestRootCommand_ListSanitizesMemoForTSVOutput(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	addWorktree(t, repoDir, "memo\twith\ntabs")
+
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(200, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"ls"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSuffix(stdout.String(), "\n"), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("ls output = %q, want a single row", stdout.String())
+	}
+
+	fields := strings.Split(lines[0], "\t")
+	if len(fields) != 6 {
+		t.Fatalf("ls output = %q, want 6 tab-separated fields despite memo control characters", stdout.String())
+	}
+
+	if fields[3] != "memo with tabs" {
+		t.Fatalf("ls memo field = %q, want sanitized memo", fields[3])
+	}
+}
+
 // assertListOutput checks the default `ls` output, which never resolves pull
 // request info and so has no PR/state columns.
 func assertListOutput(t *testing.T, repoDir string) {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/Warashi/git-wit/internal/wit/query"
@@ -65,7 +66,7 @@ func writeListEntryText(writer io.Writer, entry query.Entry, full bool) error {
 			entry.ID,
 			entry.CreatedAt.Format(time.RFC3339),
 			entry.Path,
-			entry.Memo,
+			sanitizeTSVField(entry.Memo),
 			displayOrDash(entry.Branch),
 			displayOrDash(entry.Head),
 		)
@@ -82,7 +83,7 @@ func writeListEntryText(writer io.Writer, entry query.Entry, full bool) error {
 		entry.ID,
 		entry.CreatedAt.Format(time.RFC3339),
 		entry.Path,
-		entry.Memo,
+		sanitizeTSVField(entry.Memo),
 		displayOrDash(entry.Branch),
 		displayOrDash(entry.Head),
 		prDisplay(entry.PRNumber),
@@ -93,6 +94,12 @@ func writeListEntryText(writer io.Writer, entry query.Entry, full bool) error {
 	}
 
 	return nil
+}
+
+// sanitizeTSVField keeps free-form text (the memo) from breaking the
+// tab-separated row contract; JSON output carries the raw value instead.
+func sanitizeTSVField(value string) string {
+	return strings.NewReplacer("\t", " ", "\n", " ", "\r", " ").Replace(value)
 }
 
 type listJSONEntry struct {
