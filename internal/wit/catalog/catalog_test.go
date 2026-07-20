@@ -87,6 +87,52 @@ func TestOpenIgnoresRelativeXDGDataHome(t *testing.T) {
 	}
 }
 
+func TestCurrentIDResolvesSymlinkedWorktreeRoot(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	baseDir := t.TempDir()
+	realRoot := filepath.Join(baseDir, "real-root")
+	linkRoot := filepath.Join(baseDir, "link-root")
+
+	err := os.MkdirAll(realRoot, 0o750)
+	if err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	err = os.Symlink(realRoot, linkRoot)
+	if err != nil {
+		t.Fatalf("Symlink() error = %v", err)
+	}
+
+	testutil.RunGit(t, repoDir, "config", "wit.worktree.root", linkRoot)
+
+	repo, err := catalog.Open(context.Background(), repoDir)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+
+	record := catalog.NewRecord(time.Unix(400, 0), "memo")
+	storeRecord(t, repo, record)
+
+	worktreePath := repo.WorktreePath(record.ID)
+	testutil.RunGit(t, repoDir, "worktree", "add", "-d", worktreePath)
+
+	worktreeRepo, err := catalog.Open(context.Background(), worktreePath)
+	if err != nil {
+		t.Fatalf("Open(worktree) error = %v", err)
+	}
+
+	got, err := worktreeRepo.CurrentID()
+	if err != nil {
+		t.Fatalf("CurrentID() error = %v", err)
+	}
+
+	if got != record.ID {
+		t.Fatalf("CurrentID() = %q, want %q", got, record.ID)
+	}
+}
+
 func TestListSkipsCorruptEntries(t *testing.T) {
 	t.Parallel()
 

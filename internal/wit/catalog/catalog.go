@@ -107,11 +107,39 @@ func Open(ctx context.Context, cwd string) (Repository, error) {
 		return Repository{}, fmt.Errorf("load worktree root: %w", err)
 	}
 
+	// git reports physical (symlink-resolved) paths, while the configured
+	// root is taken verbatim; resolve it so path comparisons like
+	// CurrentID agree with what rev-parse returns.
+	worktreeRoot = resolveSymlinksBestEffort(worktreeRoot)
+
 	return Repository{
 		root:         root,
 		runner:       repoRunner,
 		worktreeRoot: worktreeRoot,
 	}, nil
+}
+
+// resolveSymlinksBestEffort resolves symlinks in path even when its deepest
+// components do not exist yet (the worktree root is created lazily), by
+// resolving the nearest existing ancestor and re-appending the remainder.
+func resolveSymlinksBestEffort(path string) string {
+	remainder := ""
+	current := path
+
+	for {
+		resolved, err := filepath.EvalSymlinks(current)
+		if err == nil {
+			return filepath.Join(resolved, remainder)
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return path
+		}
+
+		remainder = filepath.Join(filepath.Base(current), remainder)
+		current = parent
+	}
 }
 
 // Root returns the absolute repository root.
