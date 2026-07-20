@@ -143,26 +143,22 @@ func Resolve(cfg Config, itemPath string, kind Kind) Mode {
 	return cfg.UntrackedDefault
 }
 
+// collectUntracked and collectIgnored use -z (NUL-separated) output: without
+// it git C-quotes paths containing non-ASCII bytes, quotes, or tabs (under
+// the default core.quotePath), and the quoted string would be treated as a
+// literal path.
 func collectUntracked(ctx context.Context, runner git.Runner) ([]Item, error) {
-	result, err := runner.Run(ctx, "ls-files", "--others", "--exclude-standard")
+	result, err := runner.Run(ctx, "ls-files", "--others", "--exclude-standard", "-z")
 	if err != nil {
 		return nil, fmt.Errorf("list untracked files: %w", err)
 	}
 
-	if result.Stdout == "" {
-		return nil, nil
-	}
+	entries := splitNulSeparated(result.Stdout)
 
-	lines := strings.Split(result.Stdout, "\n")
-
-	items := make([]Item, 0, len(lines))
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-
+	items := make([]Item, 0, len(entries))
+	for _, entry := range entries {
 		items = append(items, Item{
-			Path: line,
+			Path: entry,
 			Kind: KindUntracked,
 		})
 	}
@@ -171,30 +167,41 @@ func collectUntracked(ctx context.Context, runner git.Runner) ([]Item, error) {
 }
 
 func collectIgnored(ctx context.Context, runner git.Runner) ([]Item, error) {
-	result, err := runner.Run(ctx, "status", "--porcelain=v1", "--ignored=matching")
+	result, err := runner.Run(ctx, "status", "--porcelain=v1", "-z", "--ignored=matching")
 	if err != nil {
 		return nil, fmt.Errorf("list ignored files: %w", err)
 	}
 
-	if result.Stdout == "" {
-		return nil, nil
-	}
+	entries := splitNulSeparated(result.Stdout)
 
-	lines := strings.Split(result.Stdout, "\n")
-
-	items := make([]Item, 0, len(lines))
-	for _, line := range lines {
-		if !strings.HasPrefix(line, "!! ") {
+	items := make([]Item, 0, len(entries))
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry, "!! ") {
 			continue
 		}
 
 		items = append(items, Item{
-			Path: strings.TrimPrefix(line, "!! "),
+			Path: strings.TrimPrefix(entry, "!! "),
 			Kind: KindIgnored,
 		})
 	}
 
 	return items, nil
+}
+
+func splitNulSeparated(raw string) []string {
+	parts := strings.Split(raw, "\x00")
+
+	entries := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+
+		entries = append(entries, part)
+	}
+
+	return entries
 }
 
 func matchesAny(patterns []string, itemPath string) bool {
