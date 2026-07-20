@@ -234,6 +234,36 @@ func TestListPrefersNewestPullRequestForReusedBranch(t *testing.T) {
 	}
 }
 
+func TestListSkipsIndividualLookupForAllDigitBranch(t *testing.T) {
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	created, err := create.Create(context.Background(), repoDir, time.Unix(470, 0), "memo", nil, nil)
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	testutil.RunGit(t, created.Path, "checkout", "-b", "1234")
+	testutil.RunGit(t, created.Path, "commit", "--allow-empty", "-m", "feature")
+
+	binDir := t.TempDir()
+	ghPath := filepath.Join(binDir, "gh")
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	// gh pr view would interpret "1234" as a PR number and return an
+	// unrelated pull request; the fallback must skip such branches.
+	writeFakeGHList(t, ghPath, "0", "[]", `{"number":1234,"state":"OPEN","isDraft":false}`)
+
+	entries, err := query.List(context.Background(), repoDir, true)
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+
+	if got := entries[0].PRNumber; got != "" {
+		t.Fatalf("entry.PRNumber = %q, want empty (no lookup for numeric branch)", got)
+	}
+}
+
 func TestListSkipsFallbackWhenBatchListFails(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
 	configureWorktreeRoot(t, repoDir)

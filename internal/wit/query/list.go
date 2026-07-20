@@ -252,6 +252,13 @@ func viewPullRequest(ctx context.Context, dir string, branch string) pullRequest
 		return notFound
 	}
 
+	// gh pr view treats an all-digit argument as a PR number, so a branch
+	// named e.g. "1234" would resolve an unrelated pull request; skip the
+	// lookup rather than report wrong data.
+	if isAllDigits(branch) {
+		return notFound
+	}
+
 	if _, err := exec.LookPath(ghExecutable); err != nil {
 		return notFound
 	}
@@ -408,6 +415,16 @@ func listPullRequests(
 	}
 
 	return result, true
+}
+
+func isAllDigits(value string) bool {
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+
+	return value != ""
 }
 
 func distinctNonEmptyBranches(branches []string) []string {
