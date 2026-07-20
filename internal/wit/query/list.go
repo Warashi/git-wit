@@ -103,7 +103,7 @@ func List(ctx context.Context, cwd string, withGitHub bool) ([]Entry, error) {
 
 		entryGroup.Go(func() error {
 			included := headIncluded(ctx, cwd, localState.headOID)
-			entries[i] = newEntry(item, localState, prByBranch[localState.branch], included)
+			entries[i] = newEntry(item, localState, prByBranch[localState.branch], included, withGitHub)
 
 			return nil
 		})
@@ -154,7 +154,7 @@ func Get(ctx context.Context, cwd string, worktreeID string, withGitHub bool) (E
 
 	included := headIncluded(ctx, cwd, state.headOID)
 
-	return newEntry(item, state, view, included), nil
+	return newEntry(item, state, view, included, withGitHub), nil
 }
 
 // worktreeInfo is the local (gh-independent) state of one managed worktree.
@@ -168,8 +168,22 @@ type worktreeInfo struct {
 // newEntry assembles the read model for one worktree from its local state
 // and (if resolved) pull request info. A zero-value view is indistinguishable
 // from "no pull request found", which keeps this a pure combination step.
-func newEntry(item catalog.Record, state worktreeInfo, view pullRequestView, included bool) Entry {
+// State stays empty unless withGitHub is set: the CLI contract promises a
+// null state without --full, while Integrated always carries the local
+// ancestor judgement.
+func newEntry(
+	item catalog.Record,
+	state worktreeInfo,
+	view pullRequestView,
+	included bool,
+	withGitHub bool,
+) Entry {
 	prState := pullRequestState(view)
+
+	resolvedState := ""
+	if withGitHub {
+		resolvedState = resolveState(included, prState)
+	}
 
 	return Entry{
 		ID:         item.ID,
@@ -179,7 +193,7 @@ func newEntry(item catalog.Record, state worktreeInfo, view pullRequestView, inc
 		Branch:     state.branch,
 		Head:       state.head,
 		PRNumber:   view.Number.String(),
-		State:      resolveState(included, prState),
+		State:      resolvedState,
 		Integrated: included || mergedPullRequestHead(prState, state.headOID, view.HeadRefOID),
 	}
 }

@@ -346,8 +346,11 @@ func assertListJSONState(t *testing.T, entry listJSONEntry) {
 		t.Fatalf("ls --json pr_number = %d, want null", *entry.PRNumber)
 	}
 
-	if entry.State == nil || *entry.State != "Merged" {
-		t.Fatalf("ls --json state = %v, want %q", entry.State, "Merged")
+	// Without --full the state is never resolved and must stay null even
+	// though the head is locally integrated; that judgement is only
+	// carried by the integrated field.
+	if entry.State != nil {
+		t.Fatalf("ls --json state = %q, want null", *entry.State)
 	}
 
 	if !entry.Integrated {
