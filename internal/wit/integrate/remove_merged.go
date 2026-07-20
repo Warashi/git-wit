@@ -66,7 +66,7 @@ func RemoveMerged(
 	for _, candidate := range candidates {
 		err := validateMergedCandidate(ctx, cwd, candidate)
 		if err == nil {
-			err = Remove(ctx, cwd, candidate.ID, nil, stderr)
+			err = Remove(ctx, cwd, candidate.ID, false, nil, stderr)
 		}
 
 		results = append(results, RemovalResult{

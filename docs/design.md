@@ -163,10 +163,12 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
 
 指定されたIDに紐づく `git-wit add` 登録時のメモを標準出力に返す。`id` を省略した場合は `git-wit id` と同様にカレントディレクトリから managed worktree を解決し、そのメモを返す。
 
-### `git-wit rm <id>`
+### `git-wit rm <id> [--force]`
 
-1. `git worktree remove <Dir>/<ID>` を実行。
+1. `git worktree remove <Dir>/<ID>` を実行。`--force` 指定時は `--force` を伝播する。
 2. `git update-ref -d refs/git-wit/<ID>` で参照を削除。
+
+copy 同期を有効にした worktree は、ツール自身が配置した untracked ファイルのために素の `git worktree remove` が削除を拒否する。その場合は `--force` を使う。`--force` は未コミットの変更ごと worktree を破棄するため、既定では付与しない。`--force` と `--merged` は併用できない。
 
 ### `git-wit rm --merged [--yes]`
 

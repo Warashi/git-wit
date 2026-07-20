@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	errForceWithMerged          = errors.New("--force cannot be combined with --merged")
 	errMergedRemovalRequiresYes = errors.New("merged removal requires --yes when stdin is not interactive")
 	errMergedWithID             = errors.New("--merged accepts no worktree id")
 	errYesWithoutMerged         = errors.New("--yes requires --merged")
@@ -24,11 +25,13 @@ func newRemoveCommand(deps dependencies) *cobra.Command {
 
 	merged := false
 	yes := false
+	force := false
 
 	cmd.Flags().BoolVar(&merged, "merged", false, "remove all safely integrated managed worktrees")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation when removing merged worktrees")
+	cmd.Flags().BoolVar(&force, "force", false, "remove the worktree even when it contains untracked or modified files")
 	cmd.Args = func(cmd *cobra.Command, args []string) error {
-		return validateRemoveArgs(cmd, args, merged, yes)
+		return validateRemoveArgs(cmd, args, merged, yes, force)
 	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cwd, err := deps.cwd()
@@ -40,7 +43,7 @@ func newRemoveCommand(deps dependencies) *cobra.Command {
 			return runMergedRemoval(cmd, cwd, yes)
 		}
 
-		err = integrate.Remove(cmd.Context(), cwd, args[0], cmd.OutOrStdout(), cmd.ErrOrStderr())
+		err = integrate.Remove(cmd.Context(), cwd, args[0], force, cmd.OutOrStdout(), cmd.ErrOrStderr())
 		if err != nil {
 			return fmt.Errorf("run rm: %w", err)
 		}
@@ -51,10 +54,14 @@ func newRemoveCommand(deps dependencies) *cobra.Command {
 	return cmd
 }
 
-func validateRemoveArgs(cmd *cobra.Command, args []string, merged bool, yes bool) error {
+func validateRemoveArgs(cmd *cobra.Command, args []string, merged bool, yes bool, force bool) error {
 	if merged {
 		if len(args) != 0 {
 			return errMergedWithID
+		}
+
+		if force {
+			return errForceWithMerged
 		}
 
 		return nil

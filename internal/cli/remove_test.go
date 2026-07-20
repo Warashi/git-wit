@@ -163,6 +163,43 @@ func TestRootCommandRemoveMergedExcludesCurrentManagedWorktree(t *testing.T) {
 	assertManagedMetadata(t, repoDir, created.ID, true)
 }
 
+func TestRootCommandRemoveForceRemovesDirtyWorktree(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+	created := createManagedWorktree(t, repoDir, time.Unix(100, 0))
+
+	// Untracked files — exactly what copy synchronization leaves behind —
+	// make plain git worktree remove refuse the deletion.
+	writeFile(t, created.Path, "copied.env", "SECRET=1\n")
+
+	cmd := newTestRootCommand(repoDir, time.Unix(200, 0))
+	cmd.SetArgs([]string{"rm", created.ID})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() error = nil, want refusal for dirty worktree without --force")
+	}
+
+	assertManagedMetadata(t, repoDir, created.ID, true)
+
+	cmd = newTestRootCommand(repoDir, time.Unix(300, 0))
+	cmd.SetArgs([]string{"rm", "--force", created.ID})
+
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() with --force error = %v", err)
+	}
+
+	assertManagedMetadata(t, repoDir, created.ID, false)
+
+	_, err = os.Stat(created.Path)
+	if !os.IsNotExist(err) {
+		t.Fatalf("Stat(worktree) error = %v, want not exist", err)
+	}
+}
+
 func TestRootCommandRemoveRejectsInvalidFlagCombinations(t *testing.T) {
 	t.Parallel()
 
@@ -180,6 +217,11 @@ func TestRootCommandRemoveRejectsInvalidFlagCombinations(t *testing.T) {
 			name: "yes with id",
 			args: []string{"rm", "--yes", "01900000-0000-7000-8000-000000000000"},
 			want: "--yes requires --merged",
+		},
+		{
+			name: "force with merged",
+			args: []string{"rm", "--merged", "--force"},
+			want: "--force cannot be combined with --merged",
 		},
 	}
 

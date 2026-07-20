@@ -43,7 +43,7 @@ func Merge(ctx context.Context, cwd string, worktreeID string, remove bool, stdo
 	}
 
 	if remove {
-		err = Remove(ctx, cwd, worktreeID, stdout, stderr)
+		err = Remove(ctx, cwd, worktreeID, false, stdout, stderr)
 		if err != nil {
 			return fmt.Errorf("remove merged worktree: %w", err)
 		}
