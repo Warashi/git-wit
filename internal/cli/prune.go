@@ -11,7 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var errSystemPruneRequiresYes = errors.New("system prune requires --yes when stdin is not interactive")
+var (
+	errSystemPruneRequiresYes = errors.New("system prune requires --yes when stdin is not interactive")
+	errYesRequiresSystem      = errors.New("--yes requires --system")
+)
 
 func newPruneCommand(deps dependencies) *cobra.Command {
 	//nolint:exhaustruct // Cobra commands are configured field-by-field for readability.
@@ -26,6 +29,12 @@ func newPruneCommand(deps dependencies) *cobra.Command {
 	cmd.Flags().BoolVar(&system, "system", false, "scan the managed worktree root for orphaned directories")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation when deleting orphaned directories")
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+		// Plain prune never asks for confirmation, so a stray --yes is a
+		// misunderstanding worth surfacing rather than ignoring.
+		if yes && !system {
+			return errYesRequiresSystem
+		}
+
 		cwd, err := deps.cwd()
 		if err != nil {
 			return fmt.Errorf("get cwd: %w", err)
@@ -35,36 +44,31 @@ func newPruneCommand(deps dependencies) *cobra.Command {
 			return runSystemPrune(cmd, cwd, yes)
 		}
 
-		result, err := reconcile.Prune(cmd.Context(), cwd)
-		if err != nil {
-			return fmt.Errorf("run prune: %w", err)
-		}
-
-		for _, id := range result.RemovedRefs {
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "removed-ref\t%s\n", id)
-			if err != nil {
-				return fmt.Errorf("write output: %w", err)
-			}
-		}
-
-		for _, dirPath := range result.OrphanDirs {
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "orphan-dir\t%s\n", dirPath)
-			if err != nil {
-				return fmt.Errorf("write output: %w", err)
-			}
-		}
-
-		for _, linkPath := range result.BrokenSymlinks {
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "broken-symlink\t%s\n", linkPath)
-			if err != nil {
-				return fmt.Errorf("write output: %w", err)
-			}
-		}
-
-		return nil
+		return runPlainPrune(cmd, cwd)
 	}
 
 	return cmd
+}
+
+func runPlainPrune(cmd *cobra.Command, cwd string) error {
+	result, err := reconcile.Prune(cmd.Context(), cwd)
+	if err != nil {
+		return fmt.Errorf("run prune: %w", err)
+	}
+
+	for _, id := range result.RemovedRefs {
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "removed-ref\t%s\n", id)
+		if err != nil {
+			return fmt.Errorf("write output: %w", err)
+		}
+	}
+
+	err = writeTaggedPaths(cmd, "orphan-dir", result.OrphanDirs)
+	if err != nil {
+		return err
+	}
+
+	return writeTaggedPaths(cmd, "broken-symlink", result.BrokenSymlinks)
 }
 
 func runSystemPrune(cmd *cobra.Command, cwd string, yes bool) error {
