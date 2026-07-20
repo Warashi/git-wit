@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/Warashi/git-wit/internal/wit/reconcile"
@@ -161,18 +160,4 @@ func readConfirmation(input io.Reader) (bool, error) {
 	answer := strings.TrimSpace(strings.ToLower(line))
 
 	return answer == "y" || answer == "yes", nil
-}
-
-func isNonInteractiveInput(input io.Reader) bool {
-	file, ok := input.(*os.File)
-	if !ok {
-		return false
-	}
-
-	info, err := file.Stat()
-	if err != nil {
-		return true
-	}
-
-	return info.Mode()&os.ModeCharDevice == 0
 }
