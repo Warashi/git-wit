@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/Warashi/git-wit/internal/git"
@@ -23,10 +21,7 @@ const (
 	ModeSymlink Mode = "symlink"
 )
 
-var (
-	errInvalidMode       = errors.New("invalid mode")
-	errEmptyWorktreeRoot = errors.New("empty worktree root")
-)
+var errInvalidMode = errors.New("invalid mode")
 
 // Config holds synchronization defaults and path overrides.
 type Config struct {
@@ -36,7 +31,6 @@ type Config struct {
 	SymlinkPaths     []string
 	CopyPaths        []string
 	AddHooks         []string
-	WorktreeRoot     string
 }
 
 // Load reads git-wit settings from git config.
@@ -71,11 +65,6 @@ func Load(ctx context.Context, runner git.Runner) (Config, error) {
 		return Config{}, err
 	}
 
-	worktreeRoot, err := loadWorktreeRoot(ctx, runner)
-	if err != nil {
-		return Config{}, err
-	}
-
 	return Config{
 		IgnoredDefault:   ignoredDefault,
 		UntrackedDefault: untrackedDefault,
@@ -83,46 +72,7 @@ func Load(ctx context.Context, runner git.Runner) (Config, error) {
 		SymlinkPaths:     symlinkPaths,
 		CopyPaths:        copyPaths,
 		AddHooks:         addHooks,
-		WorktreeRoot:     worktreeRoot,
 	}, nil
-}
-
-func loadWorktreeRoot(ctx context.Context, runner git.Runner) (string, error) {
-	result, err := runner.Run(ctx, "config", "--get", "wit.worktree.root")
-	if err != nil {
-		var cmdErr git.CommandError
-		if isMissingConfig(err, &cmdErr) {
-			return defaultWorktreeRoot()
-		}
-
-		return "", fmt.Errorf("load wit.worktree.root: %w", err)
-	}
-
-	root := strings.TrimSpace(result.Stdout)
-	if root == "" {
-		return "", fmt.Errorf("load wit.worktree.root: %w", errEmptyWorktreeRoot)
-	}
-
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return "", fmt.Errorf("load wit.worktree.root: normalize path: %w", err)
-	}
-
-	return absRoot, nil
-}
-
-func defaultWorktreeRoot() (string, error) {
-	baseDir := os.Getenv("XDG_DATA_HOME")
-	if baseDir == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("resolve home dir: %w", err)
-		}
-
-		baseDir = filepath.Join(homeDir, ".local", "share")
-	}
-
-	return filepath.Join(baseDir, "git-wit", "worktrees"), nil
 }
 
 func loadMode(ctx context.Context, runner git.Runner, key string, fallback Mode) (Mode, error) {

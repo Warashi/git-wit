@@ -21,7 +21,6 @@ func TestResolve(t *testing.T) {
 		SymlinkPaths:     nil,
 		CopyPaths:        []string{"**/node_modules", ".env.local"},
 		AddHooks:         nil,
-		WorktreeRoot:     "",
 	}
 
 	cases := []struct {
@@ -74,7 +73,6 @@ func TestApplyCopiesRecursiveGlobPath(t *testing.T) {
 		UntrackedDefault: sync.ModeNone,
 		CopyPaths:        []string{"**/node_modules"},
 		AddHooks:         nil,
-		WorktreeRoot:     "",
 	}
 
 	err := sync.Apply(context.Background(), git.NewRunner(repoDir), repoDir, destDir, cfg)
@@ -228,7 +226,6 @@ func TestApply(t *testing.T) {
 		SymlinkPaths:     []string{"node_modules"},
 		CopyPaths:        []string{".env.local"},
 		AddHooks:         nil,
-		WorktreeRoot:     "",
 	}
 
 	err := sync.Apply(context.Background(), git.NewRunner(repoDir), repoDir, destDir, cfg)

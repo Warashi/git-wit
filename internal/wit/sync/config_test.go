@@ -2,7 +2,6 @@ package sync_test
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	"github.com/Warashi/git-wit/internal/git"
@@ -11,9 +10,9 @@ import (
 )
 
 func TestLoadDefaults(t *testing.T) {
+	t.Parallel()
+
 	repoDir := testutil.InitGitRepo(t)
-	dataHome := t.TempDir()
-	t.Setenv("XDG_DATA_HOME", dataHome)
 
 	cfg, err := sync.Load(context.Background(), git.NewRunner(repoDir))
 	if err != nil {
@@ -27,18 +26,12 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.UntrackedDefault != sync.ModeNone {
 		t.Fatalf("UntrackedDefault = %q, want %q", cfg.UntrackedDefault, sync.ModeNone)
 	}
-
-	wantRoot := filepath.Join(dataHome, "git-wit", "worktrees")
-	if cfg.WorktreeRoot != wantRoot {
-		t.Fatalf("WorktreeRoot = %q, want %q", cfg.WorktreeRoot, wantRoot)
-	}
 }
 
 func TestLoadConfiguredValues(t *testing.T) {
 	t.Parallel()
 
 	repoDir := testutil.InitGitRepo(t)
-	customRoot := filepath.Join(t.TempDir(), "managed-worktrees")
 	testutil.RunGit(t, repoDir, "config", "wit.ignored", "symlink")
 	testutil.RunGit(t, repoDir, "config", "wit.untracked", "copy")
 	testutil.RunGit(t, repoDir, "config", "--add", "wit.nosync.path", "*.log")
@@ -46,7 +39,6 @@ func TestLoadConfiguredValues(t *testing.T) {
 	testutil.RunGit(t, repoDir, "config", "--add", "wit.copy.path", ".env.local")
 	testutil.RunGit(t, repoDir, "config", "--add", "wit.add.hook", "npm run lint")
 	testutil.RunGit(t, repoDir, "config", "--add", "wit.add.hook", "npm test")
-	testutil.RunGit(t, repoDir, "config", "wit.worktree.root", customRoot)
 
 	cfg, err := sync.Load(context.Background(), git.NewRunner(repoDir))
 	if err != nil {
@@ -55,10 +47,6 @@ func TestLoadConfiguredValues(t *testing.T) {
 
 	assertConfiguredModes(t, cfg)
 	assertConfiguredPaths(t, cfg)
-
-	if cfg.WorktreeRoot != customRoot {
-		t.Fatalf("WorktreeRoot = %q, want %q", cfg.WorktreeRoot, customRoot)
-	}
 }
 
 func assertConfiguredModes(t *testing.T, cfg sync.Config) {
