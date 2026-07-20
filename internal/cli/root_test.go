@@ -698,6 +698,33 @@ func TestRootCommand_IDArgumentCompletion(t *testing.T) {
 	}
 }
 
+func TestRootCommand_RemoveMergedSuppressesIDCompletion(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+	configureWorktreeRoot(t, repoDir)
+
+	worktreeID, _ := addWorktree(t, repoDir, "memo")
+
+	var stdout bytes.Buffer
+
+	var stderr bytes.Buffer
+
+	cmd := newTestRootCommand(repoDir, time.Unix(700, 0))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{cobra.ShellCompRequestCmd, "rm", "--merged", ""})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Execute() error = %v, stderr = %q", err, stderr.String())
+	}
+
+	if strings.Contains(stdout.String(), worktreeID) {
+		t.Fatalf("completion output = %q, want no id for rm --merged", stdout.String())
+	}
+}
+
 func TestRootCommand_IDArgumentCompletionFiltersByPrefix(t *testing.T) {
 	t.Parallel()
 
