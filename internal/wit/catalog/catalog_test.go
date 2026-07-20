@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,6 +52,35 @@ func TestStoreLoadListDeleteExists(t *testing.T) {
 	assertExists(t, repo, first.ID, true)
 	deleteRecord(t, repo, first.ID)
 	assertExists(t, repo, first.ID, false)
+}
+
+func TestListSkipsCorruptEntries(t *testing.T) {
+	t.Parallel()
+
+	repoDir := testutil.InitGitRepo(t)
+
+	repo, err := catalog.Open(context.Background(), repoDir)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+
+	good := catalog.NewRecord(time.Unix(100, 0), "good")
+	storeRecord(t, repo, good)
+
+	// A foreign ref name, a non-JSON blob, and a blob whose id disagrees
+	// with its ref name must all be skipped instead of failing List.
+	storeRawRef(t, repoDir, "refs/git-wit/not-a-uuid", `{"id":"not-a-uuid"}`)
+	storeRawRef(t, repoDir, "refs/git-wit/"+catalog.NewID(), "not json at all")
+	storeRawRef(t, repoDir, "refs/git-wit/"+catalog.NewID(), `{"id":"`+good.ID+`","memo":"impostor"}`)
+
+	assertList(t, repo, good)
+}
+
+func storeRawRef(t *testing.T, repoDir string, ref string, blobContents string) {
+	t.Helper()
+
+	hash := strings.TrimSpace(string(testutil.RunGitWithInput(t, repoDir, blobContents, "hash-object", "-w", "--stdin")))
+	testutil.RunGit(t, repoDir, "update-ref", ref, hash)
 }
 
 func TestCurrentID(t *testing.T) {

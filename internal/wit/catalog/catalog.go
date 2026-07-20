@@ -224,16 +224,26 @@ func (r Repository) List(ctx context.Context) ([]Record, error) {
 
 	records := parseRefRecords(result.Stdout)
 
+	// Corrupt or foreign entries under refs/git-wit/ are skipped rather
+	// than failing the whole listing: List backs ls, prune, and rm
+	// --merged, and failing here would leave no built-in way to recover.
+	// A skipped entry's directory still surfaces via prune as an orphan.
 	items := make([]Record, 0, len(records))
 	for _, record := range records {
 		blobResult, blobErr := r.runner.Run(ctx, "cat-file", "-p", record.hash)
 		if blobErr != nil {
-			return nil, fmt.Errorf("read metadata blob for %s: %w", record.id, blobErr)
+			continue
 		}
 
 		item, decodeErr := decode(blobResult.Stdout)
 		if decodeErr != nil {
-			return nil, decodeErr
+			continue
+		}
+
+		// A blob whose id disagrees with its ref name would make callers
+		// act (stat, prune, remove) on a path or ref they never listed.
+		if item.ID != record.id {
+			continue
 		}
 
 		items = append(items, item)
@@ -302,8 +312,13 @@ func parseRefRecords(stdout string) []refRecord {
 			continue
 		}
 
+		recordID := strings.TrimPrefix(fields[0], "git-wit/")
+		if ValidateID(recordID) != nil {
+			continue
+		}
+
 		records = append(records, refRecord{
-			id:   strings.TrimPrefix(fields[0], "git-wit/"),
+			id:   recordID,
 			hash: fields[1],
 		})
 	}
