@@ -17,6 +17,7 @@ import (
 const (
 	copyParentPerm    = 0o750
 	managedRootPrefix = ".wit/"
+	ownerRWXPerm      = 0o700
 )
 
 type dirCloneFunc func(srcPath string, destPath string) (bool, error)
@@ -316,7 +317,10 @@ func (c copier) copyDir(srcPath string, destPath string, mode fs.FileMode) error
 		return nil
 	}
 
-	err = os.MkdirAll(destPath, mode.Perm())
+	// Create the directory owner-writable even when the source is
+	// read-only (e.g. 0555 build outputs); the source permissions are
+	// restored below, after the children have been written.
+	err = os.MkdirAll(destPath, mode.Perm()|ownerRWXPerm)
 	if err != nil {
 		return fmt.Errorf("create directory: %w", err)
 	}
@@ -334,6 +338,11 @@ func (c copier) copyDir(srcPath string, destPath string, mode fs.FileMode) error
 		if err != nil {
 			return err
 		}
+	}
+
+	err = os.Chmod(destPath, mode.Perm())
+	if err != nil {
+		return fmt.Errorf("restore directory permissions: %w", err)
 	}
 
 	return nil
