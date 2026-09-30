@@ -386,7 +386,7 @@ func loadWorktreeRoot(ctx context.Context, runner git.Runner) (string, error) {
 }
 
 func defaultWorktreeRoot() (string, error) {
-	baseDir := os.Getenv("XDG_DATA_HOME")
+	baseDir := os.Getenv("XDG_STATE_HOME")
 
 	// The XDG base directory spec requires ignoring relative paths, and
 	// honoring one here would inherit the same cwd-dependence rejected
@@ -397,7 +397,7 @@ func defaultWorktreeRoot() (string, error) {
 			return "", fmt.Errorf("resolve home dir: %w", err)
 		}
 
-		baseDir = filepath.Join(homeDir, ".local", "share")
+		baseDir = filepath.Join(homeDir, ".local", "state")
 	}
 
 	return filepath.Join(baseDir, "git-wit", "worktrees"), nil

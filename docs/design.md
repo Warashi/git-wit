@@ -56,7 +56,7 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
 ### 4.1. データ構造の置き場所
 
 1. **ファイルシステム (実体)**
-    * パス: 既定では `$XDG_DATA_HOME/git-wit/worktrees/<UUIDv7>`。`XDG_DATA_HOME` 未設定時は `$HOME/.local/share/git-wit/worktrees/<UUIDv7>`。
+    * パス: 既定では `$XDG_STATE_HOME/git-wit/worktrees/<UUIDv7>`。`XDG_STATE_HOME` 未設定時は `$HOME/.local/state/git-wit/worktrees/<UUIDv7>`。
     * 上書き: `git config wit.worktree.root <ABSOLUTE_PATH>` で配置先を変更できる。
     * 状態: `detached HEAD` の Git Worktree およびスナップショット適用済みのファイル群。
 
@@ -95,7 +95,7 @@ LoB を保つため、実装は状態遷移を主軸にし、共有境界は最�
     ignored = none
     untracked = none
     # managed worktree の配置先
-    worktree.root = /home/me/.local/share/git-wit/worktrees
+    worktree.root = /home/me/.local/state/git-wit/worktrees
 [wit "nosync"]
     # 最優先で同期を除外するパス (glob, ** 可)
     path = tmp/*

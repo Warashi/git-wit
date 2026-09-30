@@ -14,15 +14,15 @@ import (
 
 func TestOpenAndEnsureWorktreeRoot(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
-	dataHome := t.TempDir()
-	t.Setenv("XDG_DATA_HOME", dataHome)
+	stateHome := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", stateHome)
 
 	repo, err := catalog.Open(context.Background(), repoDir)
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
 
-	wantRoot := filepath.Join(dataHome, "git-wit", "worktrees")
+	wantRoot := filepath.Join(stateHome, "git-wit", "worktrees")
 	if repo.WorktreeRoot() != wantRoot {
 		t.Fatalf("WorktreeRoot() = %q, want %q", repo.WorktreeRoot(), wantRoot)
 	}
@@ -70,18 +70,18 @@ func TestOpenRejectsRelativeWorktreeRoot(t *testing.T) {
 	}
 }
 
-func TestOpenIgnoresRelativeXDGDataHome(t *testing.T) {
+func TestOpenIgnoresRelativeXDGStateHome(t *testing.T) {
 	repoDir := testutil.InitGitRepo(t)
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
-	t.Setenv("XDG_DATA_HOME", "relative/data-home")
+	t.Setenv("XDG_STATE_HOME", "relative/state-home")
 
 	repo, err := catalog.Open(context.Background(), repoDir)
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
 
-	wantRoot := filepath.Join(homeDir, ".local", "share", "git-wit", "worktrees")
+	wantRoot := filepath.Join(homeDir, ".local", "state", "git-wit", "worktrees")
 	if repo.WorktreeRoot() != wantRoot {
 		t.Fatalf("WorktreeRoot() = %q, want %q", repo.WorktreeRoot(), wantRoot)
 	}
